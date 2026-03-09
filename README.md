@@ -13,19 +13,6 @@
 - 希望基于 OpenClaw 进行二次开发或贡献代码的参与者
 - 对多渠道消息系统、插件体系、模型管理感兴趣的技术人员
 
-## 技术栈
-
-| 分类 | 技术选型 |
-|------|---------|
-| 语言 | TypeScript (ESM) |
-| 运行时 | Node.js 22+ / Bun (可选) |
-| 包管理 | pnpm monorepo |
-| 构建 | tsdown (esbuild-based) |
-| 测试 | Vitest + V8 coverage |
-| Lint | Oxlint + Oxfmt |
-| Schema | TypeBox (JSON Schema) |
-| 伴侣应用 | Swift (macOS/iOS) / Kotlin (Android) |
-
 ## 目录
 
 详见 [CONTENTS.md](./CONTENTS.md)
