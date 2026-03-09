@@ -1,10 +1,10 @@
-# 第 10 章 工具策略与沙箱
+# 第 11 章 工具策略与沙箱
 
-## 10.1 工具授权的问题
+## 11.1 工具授权的问题
 
 工具是 Agent 与外界交互的唯一通道。哪些工具可以用、谁能用、在什么场景下用——这些问题不是"全开或全关"的二选一，而是需要精细的分层授权。OpenClaw 用一套**多层策略管道（Policy Pipeline）**来解决这个问题。
 
-## 10.2 工具的六个来源
+## 11.2 工具的六个来源
 
 工具从六个来源汇聚到同一个工具集：
 
@@ -24,7 +24,7 @@ Sub-agent tools        → subagents-tool（仅 main session 有）
 
 ---
 
-## 10.3 工具组（Tool Groups）
+## 11.3 工具组（Tool Groups）
 
 **文件：** `src/agents/tool-policy-shared.ts`
 
@@ -60,7 +60,7 @@ const TOOL_GROUPS = {
 
 ---
 
-## 10.4 策略管道（Policy Pipeline）
+## 11.4 策略管道（Policy Pipeline）
 
 **文件：** `src/agents/tool-policy-pipeline.ts`
 
@@ -118,7 +118,7 @@ for each step（从低到高优先级）：
 
 ---
 
-## 10.5 Owner-Only 工具
+## 11.5 Owner-Only 工具
 
 **文件：** `src/agents/tool-policy.ts`
 
@@ -141,7 +141,7 @@ function applyOwnerOnlyToolPolicy(
 
 ---
 
-## 10.6 沙箱（Docker 隔离）
+## 11.6 沙箱（Docker 隔离）
 
 **文件：** `src/agents/sandbox/`
 
@@ -198,7 +198,7 @@ const SUBAGENT_SPAWN_SANDBOX_MODES = ["inherit", "require"] as const;
 
 ---
 
-## 10.7 群组 Session 的工具策略
+## 11.7 群组 Session 的工具策略
 
 当 Agent 在群组聊天（Discord 群、Slack 频道）中运行时，工具策略有额外约束：
 
@@ -210,7 +210,7 @@ const SUBAGENT_SPAWN_SANDBOX_MODES = ["inherit", "require"] as const;
 
 ---
 
-## 10.8 工具策略的调试
+## 11.8 工具策略的调试
 
 管道的每个步骤都有 `label` 字段，出现策略冲突时可以追踪是哪一层规则起了作用：
 
@@ -225,7 +225,7 @@ const SUBAGENT_SPAWN_SANDBOX_MODES = ["inherit", "require"] as const;
 
 ---
 
-## 10.9 本章要点
+## 11.9 本章要点
 
 - 工具来自六个来源，经过多层策略管道汇聚
 - 工具组（Tool Groups）允许批量引用，避免逐个列举

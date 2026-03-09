@@ -1,10 +1,10 @@
-# 第 9 章 上下文管理
+# 第 10 章 上下文管理
 
-## 9.1 为什么上下文管理是独立议题
+## 10.1 为什么上下文管理是独立议题
 
 LLM 的 context window 是有限资源。一个长对话、一次读取大文件、一次 bash 输出洪流，都可能让 context 快速耗尽。Pi 引擎不依赖"祈祷不会溢出"，而是实现了**四层防线**——每一层应对不同烈度的 context 压力。
 
-## 9.2 四层防线全貌
+## 10.2 四层防线全貌
 
 ```
 ┌─────────────────────────────────────────────────────────┐
@@ -30,7 +30,7 @@ LLM 的 context window 是有限资源。一个长对话、一次读取大文件
 
 ---
 
-## 9.3 第一层：Context Window Guard
+## 10.3 第一层：Context Window Guard
 
 **文件：** `src/agents/context-window-guard.ts`
 
@@ -71,7 +71,7 @@ type ContextWindowGuardResult = {
 
 ---
 
-## 9.4 第二层：Tool Result Context Guard
+## 10.4 第二层：Tool Result Context Guard
 
 **文件：** `src/agents/pi-embedded-runner/tool-result-context-guard.ts`
 
@@ -96,7 +96,7 @@ const PREEMPTIVE_TOOL_RESULT_COMPACTION_PLACEHOLDER =
 
 ---
 
-## 9.5 第三层：Compaction（历史压缩）
+## 10.5 第三层：Compaction（历史压缩）
 
 **文件：** `src/agents/compaction.ts`, `src/agents/pi-embedded-runner/compact.ts`
 
@@ -174,7 +174,7 @@ type CompactionSummarizationInstructions = {
 
 ---
 
-## 9.6 第四层：Context Pruning（主动裁剪）
+## 10.6 第四层：Context Pruning（主动裁剪）
 
 **文件：** `src/agents/pi-extensions/context-pruning/`
 
@@ -236,7 +236,7 @@ type EffectiveContextPruningSettings = {
 
 ---
 
-## 9.7 四层防线的触发时序
+## 10.7 四层防线的触发时序
 
 ```
 用户消息到达
@@ -265,7 +265,7 @@ LLM 调用（streaming）
 
 ---
 
-## 9.8 本章要点
+## 10.8 本章要点
 
 四层防线的设计哲学：**不同烈度的 context 压力由不同层次应对**。
 

@@ -19,11 +19,11 @@
 
 - [第 7 章 Pi 引擎总览与三层架构](./chapters/07-agent-runtime.md)
 - [第 8 章 System Prompt 与会话管理](./chapters/08-system-prompt.md)
-- [第 9 章 上下文管理](./chapters/09-context-management.md)
-- [第 10 章 工具策略与沙箱](./chapters/10-tool-policy.md)
-- [第 11 章 Skill 平台](./chapters/11-skills.md)
-- [第 12 章 Sub-agent 系统](./chapters/12-subagent.md)
-- [第 13 章 模型管理与 Failover](./chapters/13-model-management.md)
+- [第 9 章 模型选择](./chapters/09-model-selection.md)
+- [第 10 章 上下文管理](./chapters/10-context-management.md)
+- [第 11 章 工具策略与沙箱](./chapters/11-tool-policy.md)
+- [第 12 章 Skills](./chapters/12-skills.md)
+- [第 13 章 Sub-agent 系统](./chapters/13-subagent.md)
 - [第 14 章 工具系统实现](./chapters/14-tools.md)
 
 ## 第五部分：扩展体系
