@@ -1,4 +1,4 @@
-# 第 10 章 Plugin SDK 与渠道抽象
+# 第 15 章 Plugin SDK 与渠道抽象
 
 ## 10.1 为什么需要 Plugin SDK
 

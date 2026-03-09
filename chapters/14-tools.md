@@ -1,10 +1,10 @@
-# 第 9 章 工具系统
+# 第 14 章 工具系统实现
 
-## 9.1 工具在 Agent 架构中的角色
+## 14.1 工具在 Agent 架构中的角色
 
-工具（Tools）是 Agent 与外部世界的接口。当 LLM 决定需要执行操作时，它生成 `tool_use` block，OpenClaw 负责路由到对应实现。工具系统需要解决：多来源工具的统一注册、分层策略过滤、安全执行边界、以及对不同 LLM 工具格式的兼容。
+工具（Tools）是 Agent 与外部世界的接口。当 LLM 决定需要执行操作时，它生成 `tool_use` block，OpenClaw 负责路由到对应实现。本章聚焦工具的具体实现层——各工具的内部机制、安全设计、以及多提供商兼容处理。工具的来源组装和策略过滤见第 10 章。
 
-## 9.2 工具的多来源组装
+## 14.2 工具的多来源组装
 
 工具不是来自单一位置，而是从五个来源逐层组装，经过策略管道过滤：
 
@@ -32,7 +32,7 @@ Layer 1: Pi Coding Tools（来自 pi-coding-agent 库）
 → 最终工具集（注入 system prompt + 传给 LLM API）
 ```
 
-## 9.3 工具策略管道
+## 14.3 工具策略管道
 
 `tool-policy-pipeline.ts` 实现了一个多步骤的策略管道，决定每个工具的最终可用性：
 
@@ -77,7 +77,7 @@ const TOOL_GROUPS: Record<string, string[]> = {
 
 在 allow/deny 列表中可以使用 group 名：`deny: ["group:browser"]` 禁用所有浏览器相关工具。
 
-## 9.4 核心工具详解
+## 14.4 核心工具详解
 
 ### Bash 工具（最复杂）
 
@@ -158,7 +158,7 @@ tools/browser-tool.schema.ts   # 动作 schema
 
 Browser 工具控制一个 OpenClaw 管理的 Chrome/Chromium 实例，通过 CDP 协议操作。支持的动作包括：导航、点击、输入文本、截图、获取页面快照、上传文件。
 
-## 9.5 工具安全机制
+## 14.5 工具安全机制
 
 ### Before Tool Call Hook
 
@@ -210,7 +210,7 @@ const fsPolicy = createToolFsPolicy({
 });
 ```
 
-## 9.6 工具 Schema 兼容性
+## 14.6 工具 Schema 兼容性
 
 不同 LLM 对工具 schema 的要求不同。OpenClaw 做了大量兼容性处理：
 
@@ -219,7 +219,7 @@ const fsPolicy = createToolFsPolicy({
 - **Claude Code Assist**：特殊的 tool call ID 清洗（`tool-call-id.ts`）
 - **OpenAI function calling**：需要降级推理标签对（`downgradeOpenAIFunctionCallReasoningPairs`）
 
-## 9.7 本章要点
+## 14.7 本章要点
 
 - 工具从五个来源组装，经过七步策略管道过滤
 - Tool Groups 允许批量管理工具的 allow/deny

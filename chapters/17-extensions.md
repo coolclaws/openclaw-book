@@ -1,4 +1,4 @@
-# 第 12 章 Extension 扩展机制
+# 第 17 章 Extension 扩展机制
 
 ## 12.1 Extension vs 核心渠道的设计边界
 
