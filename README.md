@@ -15,7 +15,7 @@
 
 ## 目录
 
-详见 [CONTENTS.md](./CONTENTS.md)
+详见 [CONTENTS.md](./contents.md)
 
 全书共 **26 章 + 2 附录**，分六个部分：
 
