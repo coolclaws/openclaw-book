@@ -245,91 +245,242 @@ User3: @Bot 帮我们分析一下
 
 **文件：** `src/routing/resolve-route.ts`（804 行）
 
-### 七层匹配优先级
+路由解析是消息流水线的核心决策点：**这条消息属于哪个 Agent？归入哪个 Session？**
 
-`resolveAgentRoute` 按优先级从高到低尝试：
+### 输入参数
 
-| 层级 | matchedBy | 匹配条件 | 示例 |
-|------|-----------|---------|------|
-| 1 | `binding.peer` | peer ID + kind 精确匹配 | 特定 Telegram 用户 / Discord 频道 |
-| 2 | `binding.peer.parent` | 父线程的 peer 匹配 | Discord 线程继承父频道路由 |
-| 3 | `binding.guild+roles` | Guild ID + 角色列表 | Discord server 中特定角色 |
-| 4 | `binding.guild` | 仅 Guild ID | Discord 整个 server |
-| 5 | `binding.team` | Team ID | Teams workspace |
-| 6 | `binding.account` | Provider 账号 | 多 Bot 账号中的某个 |
-| 7 | `binding.channel` | 仅渠道名 | 所有 Telegram 消息 |
-| — | default | 无匹配 | 使用默认 Agent |
+`resolveAgentRoute` 接收来自渠道适配器提供的路由维度：
 
-**宽窄规则组合示例：**
+```typescript
+type ResolveAgentRouteInput = {
+  cfg: OpenClawConfig;
+  channel: string;       // "telegram" | "discord" | "slack" | ...
+  accountId?: string;    // 多账号时的 bot 账号 ID
+  peer?: RoutePeer;      // 发送者 { kind: "direct"|"group"|"channel", id }
+  parentPeer?: RoutePeer; // 父对话（用于 Discord thread 继承）
+  guildId?: string;      // Discord server ID
+  teamId?: string;       // MS Teams workspace ID
+  memberRoleIds?: string[]; // Discord 用户当前持有的角色 ID 列表
+};
+```
+
+### 七层匹配：从最窄到最宽
+
+`resolveAgentRoute` 按优先级从高到低依次尝试，**第一个命中的层返回结果，后续层不再评估**：
+
+```
+binding 列表
+  │
+  ├─ 第 1 层：byPeer[peer.kind:peer.id]
+  │     最精确匹配：peer kind + ID 完全相同
+  │     示例："direct:+8613800001234" / "channel:C1234ABCD"
+  │
+  ├─ 第 2 层：byPeer[parentPeer.kind:parentPeer.id]
+  │     线程继承：当前消息是线程，父对话命中了 peer binding
+  │     示例：Discord 子线程消息，父频道有 peer binding → 继承父配置
+  │
+  ├─ 第 3 层：byGuildWithRoles[guildId]（角色交集过滤）
+  │     guild ID 匹配，且 binding.roles ⊆ memberRoleIds
+  │     即：用户必须持有 binding 要求的全部角色
+  │     示例：Discord server 中只有 @Moderator 角色的消息走特定 Agent
+  │
+  ├─ 第 4 层：byGuild[guildId]
+  │     仅 guild ID 匹配（无角色要求）
+  │     示例：Discord server 内所有消息统一路由
+  │
+  ├─ 第 5 层：byTeam[teamId]
+  │     MS Teams workspace 匹配
+  │
+  ├─ 第 6 层：byAccount（accountId 过滤）
+  │     有 accountId 限定但无 peer/guild 的宽泛 binding
+  │     示例：特定 Telegram bot 账号的所有消息
+  │
+  ├─ 第 7 层：byChannel（仅渠道名匹配）
+  │     最宽泛，命中该渠道的所有未被前面层命中的消息
+  │     示例："channel": "telegram" 匹配所有 Telegram 消息
+  │
+  └─ default：无任何 binding 命中 → 使用 cfg.agents.list[0] 的 default agent
+```
+
+**输出的 `matchedBy` 字段**记录实际命中的层级，可用于调试日志：
+
+```
+"binding.peer" | "binding.peer.parent" | "binding.guild+roles"
+| "binding.guild" | "binding.team" | "binding.account"
+| "binding.channel" | "default"
+```
+
+### binding 结构与窄覆盖宽
+
+每条 binding 的配置结构：
+
+```typescript
+type AgentBindingMatch = {
+  channel: string;       // 必填（渠道名）
+  accountId?: string;    // 选填（多账号区分）
+  peer?: { kind: ChatType; id: string }; // 选填（特定对话）
+  guildId?: string;      // 选填（Discord server）
+  teamId?: string;       // 选填（Teams workspace）
+  roles?: string[];      // 选填（Discord 角色，仅与 guildId 配合）
+};
+```
+
+窄覆盖宽的实际配置示例：
 
 ```json
 {
   "bindings": [
-    { "match": { "channel": "telegram" }, "agentId": "main-agent" },
-    { "match": { "channel": "telegram", "peer": { "id": "+8613800001234" } }, "agentId": "vip-agent" }
+    {
+      "match": { "channel": "telegram" },
+      "agentId": "general-agent"
+    },
+    {
+      "match": { "channel": "telegram", "peer": { "kind": "direct", "id": "+8613800001234" } },
+      "agentId": "vip-agent"
+    },
+    {
+      "match": { "channel": "discord", "guildId": "1234567890" },
+      "agentId": "discord-agent"
+    },
+    {
+      "match": { "channel": "discord", "guildId": "1234567890", "roles": ["987654321"] },
+      "agentId": "admin-agent"
+    }
   ]
 }
 ```
 
-所有 Telegram 消息走 `main-agent`，但特定 VIP 用户走 `vip-agent`——窄规则（peer）覆盖宽规则（channel）。
+结果：
+- 普通 Telegram 消息 → `general-agent`（第 7 层）
+- VIP 用户 Telegram DM → `vip-agent`（第 1 层，覆盖第 7 层）
+- Discord server 普通成员 → `discord-agent`（第 4 层）
+- Discord server 拥有 `987654321` 角色的成员 → `admin-agent`（第 3 层，覆盖第 4 层）
 
-### 三层缓存优化
+### Session Key 构建
 
-路由解析是**热路径**，每条消息都必须执行，缓存是性能关键：
+路由确定 Agent 后，`buildAgentSessionKey` 根据 `dmScope` 决定 session 的粒度：
 
-**Layer 1：Evaluated Bindings Cache（WeakMap）**
+```
+dmScope = "main"（默认）:
+  所有 DM 合并进同一个主 session
+  "{agentId}:main"
+  → "general-agent:main"
 
-```typescript
-const evaluatedBindingsCacheByCfg = new WeakMap<OpenClawConfig, EvaluatedBindingsCache>();
+dmScope = "per-peer":
+  每个对话方独立 session
+  "{agentId}:{channel}:{accountId}:{peerKind}:{peerId}"
+  → "general-agent:telegram:default:direct:user123"
+
+dmScope = "per-channel-peer":
+  channel 也参与 session 隔离（多 channel 同 peer 时）
+
+群组消息（不受 dmScope 影响，始终 per-group）:
+  "{agentId}:{channel}:{accountId}:{groupKind}:{groupId}"
+  → "discord-agent:discord:bot1:channel:channelid789"
+
+Discord 线程（resolveThreadSessionKeys）:
+  基础 session key + thread suffix
+  → "discord-agent:discord:default:channel:channelid:thread:threadid"
 ```
 
-将配置中的 binding 列表预处理为按 `channel + accountId` 索引的结构。以 config 对象为 WeakMap key——配置热重载创建新 config 对象后，旧缓存自动被 GC 回收，不需要手动清理。
+**`identityLinks`：跨渠道身份归并**
 
-**Layer 2：Binding Index（按类型分桶）**
+```typescript
+identityLinks?: Record<string, string[]>
+// 示例：{ "+8613800001234": ["discord:user:987654321"] }
+```
+
+当用户在 Telegram 和 Discord 上是同一个人时，`identityLinks` 将两个不同的 peer ID 映射到同一个 session key，实现跨渠道上下文连续。
+
+---
+
+### 三层缓存：热路径接近 O(1)
+
+路由解析是**每条消息必经的热路径**。三层缓存确保绝大多数消息不需要重新计算：
+
+#### Layer 1：WeakMap（配置级缓存）
+
+```typescript
+const evaluatedBindingsCacheByCfg =
+  new WeakMap<OpenClawConfig, EvaluatedBindingsCache>();
+```
+
+**缓存内容**：将配置中的原始 binding 列表预处理为按 `channel + accountId` 分桶的索引结构。
+
+**Key 为 config 对象引用而非内容哈希**，这是精妙的设计：
+- 配置不变时，同一个 config 对象反复复用，WeakMap 直接命中
+- 配置热重载（`config.patch`）会创建新的 config 对象，WeakMap key 变了 → 旧缓存自动失效
+- WeakMap 不阻止 GC——旧 config 对象没有其他引用时，旧缓存整体被回收
+- **零手动失效逻辑**：没有 `invalidateCache()`，没有版本号，没有 TTL
+
+#### Layer 2：Binding Index（类型分桶索引）
+
+Layer 1 的预处理结果：
 
 ```typescript
 type EvaluatedBindingsIndex = {
-  byPeer:           Map<string, EvaluatedBinding[]>;  // O(1) peer 查找
-  byGuildWithRoles: Map<string, EvaluatedBinding[]>;
-  byGuild:          Map<string, EvaluatedBinding[]>;
-  byTeam:           Map<string, EvaluatedBinding[]>;
-  byAccount:        EvaluatedBinding[];
-  byChannel:        EvaluatedBinding[];
+  byPeer:           Map<string, EvaluatedBinding[]>;  // key: "kind:id"
+  byGuildWithRoles: Map<string, EvaluatedBinding[]>;  // key: guildId
+  byGuild:          Map<string, EvaluatedBinding[]>;  // key: guildId
+  byTeam:           Map<string, EvaluatedBinding[]>;  // key: teamId
+  byAccount:        EvaluatedBinding[];               // 线性扫描
+  byChannel:        EvaluatedBinding[];               // 线性扫描
 };
 ```
 
-peer 匹配直接 Map lookup，O(1) 完成，无需遍历所有 binding。
+第 1–5 层（peer / parentPeer / guild+roles / guild / team）都是 `Map.get(key)` → O(1)。
 
-**Layer 3：Resolved Route Cache（LRU-like）**
+只有第 6、7 层（account、channel）需要线性扫描，但这两层通常只有少量 binding（运维层面配置不会配几百条）。
+
+构建 Index 的过程（Layer 1 预处理时执行，之后缓存）：
+
+```
+遍历所有 binding：
+  有 peer → byPeer["kind:id"].push(binding)
+  有 guildId 且有 roles → byGuildWithRoles[guildId].push(binding)
+  有 guildId 无 roles  → byGuild[guildId].push(binding)
+  有 teamId → byTeam[teamId].push(binding)
+  有 accountId 无以上 → byAccount.push(binding)
+  否则 → byChannel.push(binding)
+```
+
+#### Layer 3：Resolved Route Cache（结果级缓存）
 
 ```typescript
 const MAX_RESOLVED_ROUTE_CACHE_KEYS = 4000;
 ```
 
-完整路由结果缓存。key 由所有路由参数（channel、accountId、peerId、guildId、roles 等）组合生成。超过 4000 个 key 后全量清除——路由参数的组合空间通常有限，全量清除简单有效。
+缓存的是最终的 `ResolvedAgentRoute`（已包含 agentId、sessionKey、matchedBy 等）。
 
-### Session Key 构建
-
-路由确定 Agent 后，构建 session key：
+**Cache Key 构建**：将所有路由维度序列化为字符串：
 
 ```
-DM（dmScope="main"，默认）：
-  "agent-default:main"
-
-DM（dmScope="per-peer"）：
-  "agent-default:telegram:default:direct:user123"
-
-群组消息：
-  "agent-default:telegram:default:group:groupid456"
-
-多 Agent + 多账号：
-  "work-agent:discord:bot1:channel:channelid789"
-
-Discord 线程（绑定到线程）：
-  "agent-default:discord:default:thread:threadid123"
+"{channel}:{accountId}:{peerKind}:{peerId}:{parentKind}:{parentId}:{guildId}:{teamId}:{roles_sorted}"
 ```
 
-`identityLinks` 允许跨渠道身份关联——同一个人在 Telegram 和 Discord 上的不同 ID 可以映射到同一个 session。
+角色列表排序后参与 key，确保 `["A","B"]` 和 `["B","A"]` 产生相同的 key。
+
+**淘汰策略：全量清除（不是 LRU）**
+
+```typescript
+if (cache.size >= MAX_RESOLVED_ROUTE_CACHE_KEYS) {
+  cache.clear();  // 全清，而非 LRU evict
+}
+```
+
+选择全量清除而非 LRU 的原因：路由参数的组合空间通常是固定的（用户数量 × 渠道数量），在实际部署中几乎不会达到 4000 个不同组合。即使清除，下次请求只需重新计算一次便再次命中，代价极低。LRU 需要维护访问顺序，增加了复杂度和内存开销，不值得。
+
+**三层缓存命中路径总结：**
+
+```
+消息到达
+  → Layer 3 命中？→ 直接返回已解析路由（最常见）
+  → Layer 3 miss →
+      Layer 1 命中？→ 使用已有 Index 做七层匹配
+      Layer 1 miss →
+          预处理所有 binding → 构建 Index → 存入 Layer 1
+          → 七层匹配 → 结果存入 Layer 3
+```
 
 ---
 
@@ -337,30 +488,29 @@ Discord 线程（绑定到线程）：
 
 **文件：** `src/auto-reply/reply/reply-dispatcher.ts`（246 行）
 
-### 三个设计约束
-
-1. **有序性**：tool result → block reply → final reply，不能乱序
-2. **节奏感**：连续的 block reply 之间需要随机延迟，避免机器人感
-3. **生命周期追踪**：Gateway 优雅关闭时需要等待所有 pending 回复发完
+ReplyDispatcher 是 OpenClaw 消息输出侧的核心结构，承担三个职责：
+1. **有序性保证**：tool result → block reply → final reply，绝不乱序
+2. **节奏控制**：连续 block 之间随机延迟，避免机器人感
+3. **生命周期追踪**：Gateway 优雅关闭时等待所有 pending 回复发完
 
 ### Promise 链串行化
 
+ReplyDispatcher 的实现核心是一条**不断向后延伸的 Promise 链**：
+
 ```typescript
-export function createReplyDispatcher(options): ReplyDispatcher {
-  let sendChain: Promise<void> = Promise.resolve();
-  let pending = 1;              // 初始 = 1（预留位）
-  let completeCalled = false;
+function createReplyDispatcher(options): ReplyDispatcher {
+  let sendChain: Promise<void> = Promise.resolve(); // 链的起点
+  let pending = 1;              // 初始 = 1（预留位，下文详述）
   let sentFirstBlock = false;
 
   const enqueue = (kind, payload) => {
-    // 规范化 payload（加响应前缀、过滤心跳、跳过空回复）
     const normalized = normalizeReplyPayloadInternal(payload);
-    if (!normalized) return false;
+    if (!normalized) return false;  // 空 payload / 心跳 → 跳过
 
     pending += 1;
-    const shouldDelay = kind === "block" && sentFirstBlock;
+    const shouldDelay = (kind === "block") && sentFirstBlock;
 
-    // 串到 Promise 链尾部
+    // 将新任务串接到链尾
     sendChain = sendChain
       .then(async () => {
         if (shouldDelay) await sleep(getHumanDelay(options.humanDelay));
@@ -371,71 +521,184 @@ export function createReplyDispatcher(options): ReplyDispatcher {
       .finally(() => {
         pending -= 1;
         if (pending === 0) {
-          unregister();       // 从全局注册表移除
-          options.onIdle?.(); // 通知 idle
+          unregister();        // 从全局注册表移除
+          options.onIdle?.();  // 通知 idle
         }
       });
     return true;
   };
+
+  return {
+    sendToolResult: (p) => enqueue("tool", p),
+    sendBlockReply: (p) => enqueue("block", p),
+    sendFinalReply: (p) => enqueue("final", p),
+    markComplete: () => {
+      // 延迟释放预留位（详见下节）
+      Promise.resolve().then(() => {
+        pending -= 1;
+        if (pending === 0) { unregister(); options.onIdle?.(); }
+      });
+    },
+    waitForIdle: () => sendChain,
+    getQueuedCounts: () => ({ ... }),
+  };
+}
 ```
 
-所有回复通过同一条 `sendChain` 顺序发送。即使 Agent 并发产生多个结果，用户看到的消息顺序始终正确。
+每次 `enqueue` 都把新任务接在 `sendChain` 末尾。前一个任务未完成，后一个绝不开始。即使 Agent 并发产出 tool result 和 block reply，用户看到的消息顺序始终正确。
 
-### 预留 pending 计数（防竞态）
+---
 
-`pending` 初始为 `1` 是"预留位"（reservation），解决一个微妙的竞态：
+### 预留 pending 防竞态（核心设计）
+
+`pending` 初始值为 `1` 而非 `0`，这个"预留位"（reservation）专门解决一个微妙的竞态窗口。
+
+**场景还原：**
+
+Agent 的主运行循环和 ReplyDispatcher 的发送链是**两条并发路径**。考虑这个时序：
 
 ```
-场景：Agent 运行结束，markComplete() 被调用，
-      但最后一个 enqueue() 还在执行中
-
-没有预留位时：
-  最后一个 finally() 执行 → pending = 0 → 触发 idle
-  markComplete() 执行 → 已经 idle，不再减一
-  ✗ 但 markComplete 实际上还没减那个"1"
-
-有预留位时：
-  最后一个 finally() → pending = 1（还剩预留位）
-  markComplete() 通过 microtask 延迟执行 → pending = 0 → idle
-  ✓ 正确
+时刻 T1：Agent 最后一个 tool 执行完毕
+时刻 T2：enqueue("block", lastReply) 被调用
+            → pending 从 1 变成 2
+时刻 T3：Agent 主循环退出，调用 markComplete()
+时刻 T4：sendChain 的 .finally() 执行
+            → pending 从 2 减回 1
+时刻 T5：markComplete() 内部逻辑执行
+            → pending 从 1 减到 0 → 触发 idle ✓
 ```
 
-`markComplete()` 用 `Promise.resolve().then(...)` 延迟释放预留位——让最后的 enqueue 调用有一个 microtask 的窗口先执行 `.finally()`。
+如果没有预留位（pending 初始为 0），时序变成：
+
+```
+时刻 T1：Agent 最后一个 tool 执行完毕
+时刻 T2：sendChain .finally() 恰好在此刻执行
+            → pending 从 0 减到 -1 → pending = 0 → 触发 idle ← ✗ 过早！
+时刻 T3：enqueue("block", lastReply) 被调用
+            → pending 从 -1 变成 0 → 再次触发 idle ← ✗ 重复！
+时刻 T4：markComplete() 调用
+            → 已无意义，状态已混乱
+```
+
+**预留位的语义**：
+
+```
+pending = 1  →  "Agent 主流程尚未结束"
+               （即使当前发送链为空，也不能宣布 idle）
+
+markComplete() →  Agent 主流程正式结束
+                  → 释放预留位
+                  → 如果此时 sendChain 也空了 → idle
+```
+
+**为什么 markComplete 用 microtask 延迟？**
+
+```typescript
+markComplete: () => {
+  Promise.resolve().then(() => {   // ← 延迟一个 microtask
+    pending -= 1;
+    if (pending === 0) { ... onIdle(); }
+  });
+}
+```
+
+假设调用栈是：
+
+```
+Agent 主循环退出
+  → markComplete() 同步调用
+  → 但此刻 enqueue 的 .then() 可能还在微任务队列中排队
+```
+
+`Promise.resolve().then(...)` 将"减预留位"的操作推入微任务队列尾部，让当前排队的所有 `.then()` 先执行完毕——也就是说，已经入队的 enqueue 任务至少能先开始，再由 markComplete 判断是否 idle。
+
+这是经典的**"让出当前微任务队列"**技巧，避免了在错误的时间点触发 idle。
+
+**waitForIdle 的使用：**
+
+```typescript
+// Gateway 优雅关闭序列
+await Promise.all(
+  activeDispatchers.map(d => d.waitForIdle())
+);
+// 此时所有 pending 回复已发出，可以安全关闭
+```
+
+`waitForIdle()` 返回的就是 `sendChain`——等待这条链走到终点，即等待所有已入队的回复发送完毕。
+
+---
 
 ### 人类延迟（Human Delay）
 
 ```typescript
 getHumanDelay(options.humanDelay)
-// mode="off" → 0ms（无延迟）
-// mode="on"  → random(800ms, 2500ms)（默认）
+// mode="off"    → 0ms（无延迟）
+// mode="on"     → random(800ms, 2500ms)（默认）
 // mode="custom" → random(cfg.min, cfg.max)
 ```
 
-在连续的 block reply 之间添加随机延迟，使回复节奏更自然。**第一个 block 不延迟**——用户已经等了 AI 思考的时间，不应再等额外延迟。
+在**非首个** block reply 之前插入随机延迟：
+
+```
+Block 1 → 立即发出（用户等了 AI 已够久）
+Block 2 → 等待 random(800, 2500)ms 后发出
+Block 3 → 等待 random(800, 2500)ms 后发出
+...
+```
+
+`sentFirstBlock` flag 在第一个 block 发出后置 true，后续 block 才启用延迟。这个设计让连续消息看起来像人在打字，而不是瞬间刷出一墙字。
+
+---
 
 ### 全局 Dispatcher 注册表
 
+**文件：** `src/auto-reply/reply/dispatcher-registry.ts`
+
 ```typescript
-// dispatcher-registry.ts
-const activeDispatchers = new Set<ReplyDispatcher>();
+// 每个 dispatcher 创建时向注册表登记
+registerDispatcher({
+  pending: () => pending,
+  waitForIdle: () => sendChain,
+});
+// → 返回 { id, unregister }
 
-function register(d: ReplyDispatcher) { activeDispatchers.add(d); }
-function unregister(d: ReplyDispatcher) { activeDispatchers.delete(d); }
+// idle 时（pending === 0）调用 unregister() 自动移除
 
-// Gateway 优雅关闭时：
-function getTotalPendingReplies(): number {
-  return sum(activeDispatchers, d => d.getPendingCount());
-}
+// Gateway 优雅关闭时查询
+getTotalPendingReplies()
+// → 遍历所有活跃 dispatcher，求 pending 之和
 ```
 
-Gateway 在关闭时等待 `getTotalPendingReplies() === 0`，确保所有用户消息都被完整发出。
+注册表是 Gateway 优雅关闭的最后一道门：只有 `getTotalPendingReplies() === 0`，关闭流程才能继续。确保任何正在进行的 Agent turn 的最后一条回复都能被完整发出，不因 Gateway 关闭而截断。
+
+---
 
 ### 带 Typing Indicator 的变体
 
-`createReplyDispatcherWithTyping` 在基础 dispatcher 上叠加 typing indicator 控制：
-- 收到第一个 tool result / block reply 之前：显示"正在输入..."
-- 第一个 block reply 发出后：停止 typing indicator（用户开始看到回复）
-- 渠道不支持 typing indicator 时：静默跳过
+`createReplyDispatcherWithTyping` 在基础 dispatcher 上叠加 typing indicator 生命周期：
+
+```typescript
+type ReplyDispatcherWithTypingResult = {
+  dispatcher: ReplyDispatcher;
+  replyOptions: Pick<GetReplyOptions, "onReplyStart" | "onTypingController" | "onTypingCleanup">;
+  markDispatchIdle: () => void;
+  markRunComplete: () => void;  // Agent 运行完成信号（区别于 dispatcher.markComplete）
+};
+```
+
+状态机：
+```
+Agent 开始运行 → 显示 typing indicator（"正在输入..."）
+  ↓
+第一个 block reply 发出 → 停止 typing indicator
+  ↓
+（用户已开始收到回复，不再需要"等待"提示）
+  ↓
+Agent 运行完成（markRunComplete）+ dispatcher idle（markDispatchIdle）
+  → 清理 typing 资源（onCleanup）
+```
+
+渠道不支持 typing indicator 时（webchat 等），相关调用静默无操作。
 
 ---
 
