@@ -1,10 +1,10 @@
-# 第 15 章 Plugin SDK 与渠道抽象
+# 第 21 章 Plugin SDK 与渠道抽象
 
-## 10.1 为什么需要 Plugin SDK
+## 21.1 为什么需要 Plugin SDK
 
 OpenClaw 支持十几种消息渠道，每种有不同的 API、消息格式和能力特性。Plugin SDK 定义了一套统一的接口（Adapters），实现了**渠道代码与核心逻辑的解耦**。没有 SDK 的话，添加一个新渠道就需要修改核心代码的十几处；有了 SDK，只需要实现几个接口。
 
-## 10.2 Adapter 接口体系
+## 21.2 Adapter 接口体系
 
 `plugin-sdk/core.ts` 导出了 15+ 种 Adapter 接口，每种对应渠道能力的一个维度。渠道插件只需实现需要的接口——这是**接口隔离原则**的典型应用。
 
@@ -64,7 +64,7 @@ interface ChannelCapabilities {
 
 核心系统根据能力声明做出正确的行为决策。例如：如果渠道不支持 `supportsEditing`，流式回复会作为多条消息发送，而不是编辑同一条消息。
 
-## 10.3 入站消息统一模型
+## 21.3 入站消息统一模型
 
 所有渠道的入站消息都被转换为统一的 `InboundEnvelope`（`plugin-sdk/inbound-envelope.ts`）。这是消息流水线的"通用货币"——downstream 的所有逻辑都只和 Envelope 打交道，不关心消息来自哪个渠道。
 
@@ -73,7 +73,7 @@ interface ChannelCapabilities {
 - Discord handler 将 `discord.js.Message` → `InboundEnvelope`
 - WhatsApp handler 将 `Baileys.WAMessage` → `InboundEnvelope`
 
-## 10.4 出站消息路由
+## 21.4 出站消息路由
 
 出站消息通过 `ChannelOutboundContext` 传递给渠道：
 
@@ -91,7 +91,7 @@ interface ChannelOutboundContext {
 
 `ChannelSendResult` 返回发送结果，包含平台分配的消息 ID（用于后续编辑或回复引用）。
 
-## 10.5 SDK 辅助工具
+## 21.5 SDK 辅助工具
 
 Plugin SDK 提供一系列辅助工具，简化插件开发：
 
@@ -116,7 +116,7 @@ Plugin SDK 提供一系列辅助工具，简化插件开发：
 - `webhook-request-guards.ts`：Webhook 请求验证
 - `webhook-targets.ts`：Webhook 目标管理
 
-## 10.6 Plugin SDK 的 npm 发布结构
+## 21.6 Plugin SDK 的 npm 发布结构
 
 Plugin SDK 通过多个 export path 发布：
 
@@ -130,7 +130,7 @@ import { ... } from 'openclaw/plugin-sdk/slack'      // Slack 特定工具
 
 每个渠道特定的子路径提供该渠道独有的工具（如 `discord-send.ts` 提供 Discord 消息发送的辅助函数）。
 
-## 10.7 本章要点
+## 21.7 本章要点
 
 - Plugin SDK 用 15+ 种 Adapter 接口实现接口隔离，渠道只实现需要的部分
 - `ChannelCapabilities` 让核心系统了解每个渠道的能力边界

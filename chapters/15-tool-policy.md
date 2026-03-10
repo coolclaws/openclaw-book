@@ -1,10 +1,10 @@
-# 第 11 章 工具策略
+# 第 15 章 工具策略
 
-## 11.1 工具授权的问题
+## 15.1 工具授权的问题
 
 工具是 Agent 与外界交互的唯一通道。哪些工具可以用、谁能用、在什么场景下用——这些问题不是"全开或全关"的二选一，而是需要精细的分层授权。OpenClaw 用一套**多层策略管道（Policy Pipeline）**解决这个问题，同时在工具实现层提供安全边界。
 
-## 11.2 工具的六个来源
+## 15.2 工具的六个来源
 
 工具从六个来源汇聚到同一个工具集：
 
@@ -24,7 +24,7 @@ Sub-agent tools        → subagents-tool（仅 main session 有）
 
 ---
 
-## 11.3 工具组（Tool Groups）
+## 15.3 工具组（Tool Groups）
 
 **文件：** `src/agents/tool-policy-shared.ts`
 
@@ -58,7 +58,7 @@ const TOOL_GROUPS = {
 
 ---
 
-## 11.4 策略管道（Policy Pipeline）
+## 15.4 策略管道（Policy Pipeline）
 
 **文件：** `src/agents/tool-policy-pipeline.ts`
 
@@ -112,7 +112,7 @@ for each step（低 → 高优先级）：
 
 ---
 
-## 11.5 Owner-Only 工具
+## 15.5 Owner-Only 工具
 
 **文件：** `src/agents/tool-policy.ts`
 
@@ -131,7 +131,7 @@ function applyOwnerOnlyToolPolicy(
 
 ---
 
-## 11.6 核心工具详解
+## 15.6 核心工具详解
 
 ### Bash 工具（最复杂）
 
@@ -202,7 +202,7 @@ tools/browser-tool.schema.ts   # 动作 schema
 
 ---
 
-## 11.7 工具安全机制
+## 15.7 工具安全机制
 
 ### Before Tool Call Hook
 
@@ -249,7 +249,7 @@ createToolFsPolicy({
 
 ---
 
-## 11.8 工具 Schema 兼容性
+## 15.8 工具 Schema 兼容性
 
 不同 LLM 对工具 schema 要求不同：
 
@@ -262,7 +262,7 @@ createToolFsPolicy({
 
 ---
 
-## 11.9 本章要点
+## 15.9 本章要点
 
 - 工具来自六个来源，经过多层策略管道 + 模型兼容性双重过滤
 - 策略管道是覆盖式的，高优先级策略完全替代低优先级结论

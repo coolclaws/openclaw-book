@@ -1,10 +1,10 @@
-# 第 12 章 Sandbox
+# 第 16 章 Sandbox
 
-## 12.1 为什么需要沙箱
+## 16.1 为什么需要沙箱
 
 Agent 运行用户提供的代码或处理不可信输入时，宿主机的安全边界完全依赖工具策略——但策略是软件层的，可以被绕过（比如通过 bash 工具访问宿主机敏感文件）。Sandbox 在操作系统层提供强隔离：Agent 的所有操作都在 Docker 容器内执行，容器外的文件系统和网络默认不可达。
 
-## 12.2 文件组织
+## 16.2 文件组织
 
 ```
 src/agents/sandbox/
@@ -20,7 +20,7 @@ src/agents/sandbox/
 
 ---
 
-## 12.3 沙箱工具策略（固定规则）
+## 16.3 沙箱工具策略（固定规则）
 
 沙箱的工具策略是**硬编码**的，不受 `openclaw.json` 配置影响，也不受用户的 toolPolicy 设置覆盖：
 
@@ -42,7 +42,7 @@ discord_*, telegram_*, slack_*, whatsapp_*（全部渠道工具）
 
 ---
 
-## 12.4 沙箱生命周期
+## 16.4 沙箱生命周期
 
 ```
 session 创建，且 sandbox=require（或配置默认启用）
@@ -66,7 +66,7 @@ sandbox-prune（定期任务）—— 清理停止的容器和临时数据
 
 ---
 
-## 12.5 两种触发方式
+## 16.5 两种触发方式
 
 **文件：** `src/agents/subagent-spawn.ts`
 
@@ -86,7 +86,7 @@ const SUBAGENT_SPAWN_SANDBOX_MODES = ["inherit", "require"] as const;
 
 ---
 
-## 12.6 沙箱 vs 工具策略的关系
+## 16.6 沙箱 vs 工具策略的关系
 
 沙箱和工具策略（第 11 章）是两个不同层次的安全机制：
 
@@ -101,7 +101,7 @@ const SUBAGENT_SPAWN_SANDBOX_MODES = ["inherit", "require"] as const;
 
 ---
 
-## 12.7 本章要点
+## 16.7 本章要点
 
 - 沙箱在 OS 层提供隔离，工具策略是软件层——两者互补
 - 沙箱工具策略硬编码，不可被用户配置覆盖

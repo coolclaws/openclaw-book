@@ -1,6 +1,6 @@
-# 第 17 章 Extension 扩展机制
+# 第 23 章 Extension 扩展机制
 
-## 12.1 Extension vs 核心渠道的设计边界
+## 23.1 Extension vs 核心渠道的设计边界
 
 OpenClaw 将渠道分为"核心"（`src/` 下直接编译）和"扩展"（`extensions/` 下独立 package）。设计边界的判断标准：
 
@@ -9,7 +9,7 @@ OpenClaw 将渠道分为"核心"（`src/` 下直接编译）和"扩展"（`exten
 - **维护模式**：核心渠道由主维护者维护，扩展可以由社区维护
 - **可选性**：核心渠道零配置可用，扩展需要显式安装
 
-## 12.2 Extension 的 Package 结构
+## 23.2 Extension 的 Package 结构
 
 每个 extension 是一个独立的 npm package，遵循固定的目录结构：
 
@@ -41,7 +41,7 @@ extensions/matrix/
 
 为什么用 `peerDependencies` 而不是 `dependencies`？因为运行时 OpenClaw 通过 `jiti`（运行时 TypeScript 加载器）解析 `openclaw/plugin-sdk` 的引用，不需要在 extension 的 `node_modules` 中实际安装 `openclaw`。而 `workspace:*` 在 `dependencies` 中会导致 `npm install` 失败（`workspace:` 协议是 pnpm 特有的）。
 
-## 12.3 插件加载机制
+## 23.3 插件加载机制
 
 `src/plugins/` 实现了完整的插件生命周期管理：
 
@@ -82,7 +82,7 @@ validateConfigObject(config);                    // 只校验核心字段
 validateConfigObjectWithPlugins(config);          // 核心 + 所有已加载插件的字段
 ```
 
-## 12.4 Extension 分类详解
+## 23.4 Extension 分类详解
 
 ### 渠道扩展（最多）
 
@@ -114,7 +114,7 @@ validateConfigObjectWithPlugins(config);          // 核心 + 所有已加载插
 - **`qwen-portal-auth/`**：通义千问 Portal 认证
 - **`copilot-proxy/`**：GitHub Copilot 代理认证
 
-## 12.5 Hook 系统
+## 23.5 Hook 系统
 
 插件通过 hook 系统在 Agent 生命周期的关键节点介入。`src/hooks/` 定义了所有可用的 hook 点：
 
@@ -152,7 +152,7 @@ if (hookRunner?.hasHooks("before_model_resolve")) {
 
 `hasHooks` 检查避免了在没有任何插件监听时的无谓调用。
 
-## 12.6 开发新 Extension 的完整流程
+## 23.6 开发新 Extension 的完整流程
 
 ```bash
 # 1. 创建目录
@@ -180,7 +180,7 @@ cd ../.. && pnpm install
 pnpm test extensions/my-channel
 ```
 
-## 12.7 本章要点
+## 23.7 本章要点
 
 - Extension 通过 `peerDependencies` + `jiti` 运行时解析实现依赖管理
 - 插件加载经历发现 → 安装 → import → 注册的完整生命周期

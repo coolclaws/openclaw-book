@@ -1,6 +1,6 @@
-# 第 13 章 Skills
+# 第 18 章 Skills
 
-## 13.1 Skills 的本质
+## 18.1 Skills 的本质
 
 Skills 不是代码插件，而是**给 Agent 看的操作手册**。每个 Skill 是一个 Markdown 文件（`SKILL.md`），描述一项特定能力的操作方法：调用哪些工具、按什么顺序、用什么参数。
 
@@ -17,7 +17,7 @@ Skills 不是代码插件，而是**给 Agent 看的操作手册**。每个 Skil
 
 ---
 
-## 13.2 Skill 文件结构
+## 18.2 Skill 文件结构
 
 一个完整的 Skill 目录：
 
@@ -67,7 +67,7 @@ install:
 
 ---
 
-## 13.3 完整类型定义
+## 18.3 完整类型定义
 
 ```typescript
 type OpenClawSkillMetadata = {
@@ -104,7 +104,7 @@ type SkillInstallSpec = {
 
 ---
 
-## 13.4 Skills 的四个来源与优先级
+## 18.4 Skills 的四个来源与优先级
 
 Skills 来自四个来源：
 
@@ -129,7 +129,7 @@ syncSkillsToWorkspace()      // 同步到本地 workspace
 
 ---
 
-## 13.5 按需加载设计
+## 18.5 按需加载设计
 
 ### Step 1：构建描述摘要（system prompt 构建时）
 
@@ -185,7 +185,7 @@ System prompt 中有明确约束：
 
 ---
 
-## 13.6 always: true 的 Skills
+## 18.6 always: true 的 Skills
 
 标记 `always: true` 的 Skills 会在每次请求时自动注入完整内容，不需要 Agent 主动读取：
 
@@ -204,7 +204,7 @@ always: true
 
 ---
 
-## 13.7 Skill Commands（命令快捷方式）
+## 18.7 Skill Commands（命令快捷方式）
 
 每个 Skill 可以注册用户可调用的 slash 命令：
 
@@ -239,7 +239,7 @@ type SkillCommandDispatchSpec = {
 
 ---
 
-## 13.8 Skills 调用策略
+## 18.8 Skills 调用策略
 
 ```typescript
 type SkillInvocationPolicy = {
@@ -252,7 +252,7 @@ type SkillInvocationPolicy = {
 
 ---
 
-## 13.9 Skills 的环境变量覆盖
+## 18.9 Skills 的环境变量覆盖
 
 **文件：** `src/agents/skills/env-overrides.ts`
 
@@ -274,7 +274,7 @@ Skills 可以声明依赖的环境变量（通过 `primaryEnv`），用户可以
 
 ---
 
-## 13.10 Skills 的资格检查
+## 18.10 Skills 的资格检查
 
 在将 Skills 包含到 system prompt 之前，`filterWorkspaceSkillEntries` 检查每个 Skill 的资格：
 
@@ -299,7 +299,7 @@ type SkillEligibilityContext = {
 
 ---
 
-## 13.11 本章要点
+## 18.11 本章要点
 
 - Skills 是纯 Markdown 的操作手册，不是代码插件——零代码扩展能力
 - 按需加载设计在典型场景下节省约 46,000 token/次
