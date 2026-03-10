@@ -5,7 +5,7 @@ export default defineConfig({
   description: '深入剖析 OpenClaw —— 一个开源的个人 AI 助手网关系统',
   lang: 'zh-CN',
 
-  base: '/openclaw-book/',
+  base: '/',
 
   head: [
     ['link', { rel: 'icon', type: 'image/svg+xml', href: '/openclaw-book/favicon.svg' }],
