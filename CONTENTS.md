@@ -14,31 +14,35 @@
 
 - [第 5 章 Gateway 控制平面](./chapters/05-gateway.md)
 - [第 6 章 消息流水线：从接收到回复](./chapters/06-message-pipeline.md)
+- [第 7 章 消息出境：Outbound Delivery 系统](./chapters/07-outbound-delivery.md)
+- [第 8 章 媒体理解：音频、图像、视频与 PDF](./chapters/08-media-understanding.md)
+- [第 9 章 Cron 调度引擎](./chapters/09-cron.md)
 
 ## 第四部分：Agent 运行时
 
-- [第 7 章 Pi 引擎总览与三层架构](./chapters/07-agent-runtime.md)
-- [第 8 章 System Prompt 与会话管理](./chapters/08-system-prompt.md)
-- [第 9 章 模型选择](./chapters/09-model-selection.md)
-- [第 10 章 上下文管理](./chapters/10-context-management.md)
-- [第 11 章 记忆系统](./chapters/11-memory.md)
-- [第 12 章 工具策略](./chapters/12-tool-policy.md)
-- [第 13 章 Sandbox](./chapters/13-sandbox.md)
-- [第 14 章 Skills](./chapters/14-skills.md)
-- [第 15 章 Sub-agent 系统](./chapters/15-subagent.md)
-- [第 16 章 ACP：外部编码 Agent 协议](./chapters/16-acp.md)
+- [第 10 章 Pi 引擎总览与三层架构](./chapters/10-agent-runtime.md)
+- [第 11 章 System Prompt 与会话管理](./chapters/11-system-prompt.md)
+- [第 12 章 模型选择](./chapters/12-model-selection.md)
+- [第 13 章 上下文管理](./chapters/13-context-management.md)
+- [第 14 章 记忆系统](./chapters/14-memory.md)
+- [第 15 章 工具策略](./chapters/15-tool-policy.md)
+- [第 16 章 Sandbox](./chapters/16-sandbox.md)
+- [第 17 章 Browser 控制系统](./chapters/17-browser.md)
+- [第 18 章 Skills](./chapters/18-skills.md)
+- [第 19 章 Sub-agent 系统](./chapters/19-subagent.md)
+- [第 20 章 ACP：外部编码 Agent 协议](./chapters/20-acp.md)
 
 ## 第五部分：扩展体系
 
-- [第 17 章 Plugin SDK 与渠道抽象](./chapters/17-plugin-sdk.md)
-- [第 18 章 消息渠道实现](./chapters/18-channels.md)
-- [第 19 章 Extension 扩展机制](./chapters/19-extensions.md)
+- [第 21 章 Plugin SDK 与渠道抽象](./chapters/21-plugin-sdk.md)
+- [第 22 章 消息渠道实现](./chapters/22-channels.md)
+- [第 23 章 Extension 扩展机制](./chapters/23-extensions.md)
 
 ## 第六部分：辅助系统
 
-- [第 20 章 安全模型](./chapters/20-security.md)
-- [第 21 章 前端与伴侣应用](./chapters/21-frontend.md)
-- [第 22 章 辅助子系统](./chapters/22-auxiliary-systems.md)
+- [第 24 章 安全模型](./chapters/24-security.md)
+- [第 25 章 前端与伴侣应用](./chapters/25-frontend.md)
+- [第 26 章 辅助子系统](./chapters/26-auxiliary-systems.md)
 
 ## 附录
 
