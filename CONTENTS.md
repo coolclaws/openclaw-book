@@ -26,18 +26,19 @@
 - [第 13 章 Sandbox](./chapters/13-sandbox.md)
 - [第 14 章 Skills](./chapters/14-skills.md)
 - [第 15 章 Sub-agent 系统](./chapters/15-subagent.md)
+- [第 16 章 ACP：外部编码 Agent 协议](./chapters/16-acp.md)
 
 ## 第五部分：扩展体系
 
-- [第 16 章 Plugin SDK 与渠道抽象](./chapters/16-plugin-sdk.md)
-- [第 17 章 消息渠道实现](./chapters/17-channels.md)
-- [第 18 章 Extension 扩展机制](./chapters/18-extensions.md)
+- [第 17 章 Plugin SDK 与渠道抽象](./chapters/17-plugin-sdk.md)
+- [第 18 章 消息渠道实现](./chapters/18-channels.md)
+- [第 19 章 Extension 扩展机制](./chapters/19-extensions.md)
 
 ## 第六部分：辅助系统
 
-- [第 19 章 安全模型](./chapters/19-security.md)
-- [第 20 章 前端与伴侣应用](./chapters/20-frontend.md)
-- [第 21 章 辅助子系统](./chapters/21-auxiliary-systems.md)
+- [第 20 章 安全模型](./chapters/20-security.md)
+- [第 21 章 前端与伴侣应用](./chapters/21-frontend.md)
+- [第 22 章 辅助子系统](./chapters/22-auxiliary-systems.md)
 
 ## 附录
 
