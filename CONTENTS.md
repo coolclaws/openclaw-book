@@ -21,22 +21,23 @@
 - [第 8 章 System Prompt 与会话管理](./chapters/08-system-prompt.md)
 - [第 9 章 模型选择](./chapters/09-model-selection.md)
 - [第 10 章 上下文管理](./chapters/10-context-management.md)
-- [第 11 章 工具策略](./chapters/11-tool-policy.md)
-- [第 12 章 Sandbox](./chapters/12-sandbox.md)
-- [第 13 章 Skills](./chapters/13-skills.md)
-- [第 14 章 Sub-agent 系统](./chapters/14-subagent.md)
+- [第 11 章 记忆系统](./chapters/11-memory.md)
+- [第 12 章 工具策略](./chapters/12-tool-policy.md)
+- [第 13 章 Sandbox](./chapters/13-sandbox.md)
+- [第 14 章 Skills](./chapters/14-skills.md)
+- [第 15 章 Sub-agent 系统](./chapters/15-subagent.md)
 
 ## 第五部分：扩展体系
 
-- [第 15 章 Plugin SDK 与渠道抽象](./chapters/15-plugin-sdk.md)
-- [第 16 章 消息渠道实现](./chapters/16-channels.md)
-- [第 17 章 Extension 扩展机制](./chapters/17-extensions.md)
+- [第 16 章 Plugin SDK 与渠道抽象](./chapters/16-plugin-sdk.md)
+- [第 17 章 消息渠道实现](./chapters/17-channels.md)
+- [第 18 章 Extension 扩展机制](./chapters/18-extensions.md)
 
 ## 第六部分：辅助系统
 
-- [第 18 章 安全模型](./chapters/18-security.md)
-- [第 19 章 前端与伴侣应用](./chapters/19-frontend.md)
-- [第 20 章 辅助子系统](./chapters/20-auxiliary-systems.md)
+- [第 19 章 安全模型](./chapters/19-security.md)
+- [第 20 章 前端与伴侣应用](./chapters/20-frontend.md)
+- [第 21 章 辅助子系统](./chapters/21-auxiliary-systems.md)
 
 ## 附录
 
