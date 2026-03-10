@@ -93,7 +93,295 @@ type CronPayload =
 
 ---
 
-## 9.5 投递模式
+## 9.5 isolated agentTurn 的执行机制
+
+这是本章最核心的部分。当一个 `sessionTarget: "isolated"` 的 cron job 触发，实际发生的是什么？
+
+### 9.5.1 触发入口：runIsolatedAgentJob
+
+Cron service 的运行时依赖结构如下：
+
+```typescript
+type CronServiceDeps = {
+  // ...调度、持久化等依赖...
+
+  runIsolatedAgentJob: (params: {
+    job: CronJob;
+    message: string;
+    abortSignal?: AbortSignal;
+  }) => Promise<{
+    summary?: string;
+    outputText?: string;   // Agent 最后的完整文本输出
+    delivered?: boolean;   // 是否由 Agent 自己完成了投递（用了 message 工具）
+    deliveryAttempted?: boolean;
+  } & CronRunOutcome & CronRunTelemetry>;
+};
+```
+
+`runIsolatedAgentJob` 是**依赖注入**进来的——cron service 本身不知道如何运行 Agent，只负责调度和状态管理。Gateway 启动时将具体的 Agent 运行能力注入进来。这样 cron service 对 Pi 引擎没有直接依赖，可以独立测试。
+
+### 9.5.2 从触发到 Agent 运行的完整链路
+
+```
+调度器触发（timer 到期）
+  ↓
+isJobDue(job, nowMs)  ← 确认 job 确实到期（防并发重复触发）
+  ↓
+locked(state, fn)     ← 串行锁，同一 job 不并发执行
+  ↓
+resolveCronJobTimeoutMs(job)   ← 计算超时上限
+  ↓
+runIsolatedAgentJob({
+  job,
+  message: job.payload.message,   ← 取 payload 中的任务描述
+  abortSignal,                    ← 绑定超时的 AbortSignal
+})
+  ↓
+内部调用 commands/agent 框架：
+  resolveSession(opts)            ← 创建/定位 session
+  runEmbeddedPiAgent(params)      ← 运行完整 Pi Agent
+  updateSessionStoreAfterAgentRun ← 更新 session 状态
+  deliverAgentCommandResult       ← 投递结果
+  ↓
+记录 CronRunOutcome + CronRunTelemetry
+  ↓
+触发 CronEvent("finished", ...)
+```
+
+### 9.5.3 超时策略
+
+**文件：** `src/cron/service/timeout-policy.ts`
+
+```typescript
+// 普通 cron job 的安全上限（防止卡死）
+const DEFAULT_JOB_TIMEOUT_MS: number;
+
+// Agent turn 使用更大的安全上限
+// 因为 Agent 可能需要多次工具调用、LLM 推理
+const AGENT_TURN_SAFETY_TIMEOUT_MS: number;  // 远大于 DEFAULT_JOB_TIMEOUT_MS
+
+function resolveCronJobTimeoutMs(job: CronJob): number | undefined {
+  if (payload.kind === "agentTurn" && payload.timeoutSeconds === 0) {
+    return undefined; // 0 = 不超时（用户显式选择）
+  }
+  if (payload.timeoutSeconds) {
+    return payload.timeoutSeconds * 1000;
+  }
+  // agentTurn 默认用更大的安全上限
+  return isAgentTurn ? AGENT_TURN_SAFETY_TIMEOUT_MS : DEFAULT_JOB_TIMEOUT_MS;
+}
+```
+
+超时通过 `AbortSignal` 传递给 Agent 运行。Agent 在每次工具调用前检查 signal，超时后优雅退出而非强杀。
+
+### 9.5.4 Session：全新的、隔离的
+
+`resolveSession` 为 cron job 建立 session：
+
+```typescript
+resolveSession({
+  cfg,
+  agentId: job.agentId ?? defaultAgentId,
+  sessionKey: job.sessionKey,  // job 可以指定固定 sessionKey（便于跨次续接）
+})
+```
+
+**session key 来源：**
+
+| job.sessionKey | 行为 |
+|----------------|------|
+| 未设置（默认）| 每次触发创建新 session，完全隔离 |
+| 明确设置 | 复用同一 session，历史在每次触发间积累 |
+
+**为什么推荐不设置 sessionKey（即每次全新）？**
+
+- 避免 context 历史随时间累积，最终超出 token 限制
+- 每次任务从"干净状态"开始，不受上次运行失败或异常状态影响
+- Session Reaper 可以在任务完成后清理这个 session，不留垃圾
+
+**隔离的含义：** 这个 session 与主 session（`main`）完全不共享历史。从 LLM 视角看，这是一个全新的对话，没有任何之前的上下文包袱。
+
+### 9.5.5 模型：继承、覆盖、回退
+
+**文件：** `src/agents/model-selection.ts`
+
+```typescript
+// payload 中的 model 字段
+normalizeModelSelection(job.payload.model)
+// → undefined / "claude-sonnet-4-6" / "openrouter/google/gemini-2.5-pro" / ...
+```
+
+模型选择的优先级链：
+
+```
+payload.model（cron job 级别指定）
+  ↓ 未指定
+agent config 中的 model（该 agentId 的默认模型）
+  ↓ 未指定
+agents.defaults.model（全局默认）
+  ↓ 未指定
+config 顶层 model
+```
+
+这让不同的 cron job 可以使用不同的模型：
+
+```json
+{
+  "payload": {
+    "kind": "agentTurn",
+    "message": "分析今天的日志并总结异常模式",
+    "model": "openrouter/deepseek/deepseek-r1-0528",  // 用推理模型做分析
+    "thinking": "high"
+  }
+}
+```
+
+而日常的邮件检查任务可以用廉价的快速模型：
+
+```json
+{
+  "payload": {
+    "kind": "agentTurn",
+    "message": "检查未读邮件，有重要邮件则发通知",
+    "model": "openrouter/google/gemini-2.5-pro"
+  }
+}
+```
+
+**thinking 级别** 同样可以在 payload 中指定，让计算密集型任务使用更深的推理链，常规任务保持轻量。
+
+### 9.5.6 Context：System Prompt + 空历史
+
+Agent turn 执行时，Pi 引擎构建如下 context：
+
+```
+┌─────────────────────────────────────────────────────┐
+│ System Prompt                                        │
+│  （完整构建，与常规 turn 无差异）                     │
+│  包含：SOUL.md / USER.md / AGENTS.md / 工具声明 /    │
+│        memory inject / skills / runtime 信息          │
+├─────────────────────────────────────────────────────┘
+│ 历史消息                                             │
+│  （空，或 job.sessionKey 指定了固定 session 时有历史）│
+├─────────────────────────────────────────────────────┘
+│ 用户消息                                             │
+│  payload.message                                     │
+│  例如："检查今天的日历，有 2 小时内的会议则发提醒"     │
+└─────────────────────────────────────────────────────┘
+```
+
+**System Prompt 是完整的**——这意味着：
+- Agent 知道自己是谁（SOUL.md）
+- Agent 知道用户是谁（USER.md）
+- 如果 memory 系统有相关内容，会被注入（memory_search 的自动注入部分）
+- 所有声明了的工具都可用
+
+**空历史的含义：** Agent 没有"上次我们聊了什么"的记忆，但有"我是谁、我的用户是谁"的身份认知，以及通过 `memory_search` 工具访问长期记忆的能力。
+
+### 9.5.7 工具：与常规 turn 完全相同
+
+这是最关键的设计选择：**cron isolated turn 使用与普通对话完全相同的工具集**。
+
+```
+工具集 = 该 agentId 的 agent config 中配置的所有工具
+       + 工具策略管道（policy pipeline）过滤
+       - senderIsOwner 影响的高权限工具
+```
+
+`AgentCommandOpts` 中的 `senderIsOwner` 字段：
+
+```typescript
+senderIsOwner: true  // cron 任务默认以 owner 身份运行
+```
+
+这意味着 cron Agent 拥有 **owner 级别的完整工具权限**，包括：
+- `exec` / `bash`（执行 shell 命令）
+- `memory_search` / `memory_get`（读取记忆）
+- `message`（向任意频道发消息）
+- `browser`（控制浏览器）
+- `cron`（可以创建新的 cron job！）
+- `sessions_spawn`（可以创建 sub-agent）
+
+一个每天早上 8 点运行的"日报"任务，其实可以做到：
+
+```
+1. memory_search("今天的待办") → 读取记忆
+2. exec("git log --since=yesterday") → 查看昨天的提交
+3. web_fetch("https://...") → 抓取相关页面
+4. message(to=用户, channel=telegram) → 发送日报
+5. memory_get + edit MEMORY.md → 更新长期记忆
+```
+
+### 9.5.8 结果收集与投递判断
+
+Agent run 完成后，`runIsolatedAgentJob` 收集结果：
+
+```typescript
+type IsolatedJobResult = {
+  summary?: string;       // Agent 最后输出的摘要文本（用于 announce 模式）
+  outputText?: string;    // 最后一段完整文本（未截断，用于调试）
+  delivered?: boolean;    // Agent 自己调用了 message 工具发送了结果？
+  deliveryAttempted?: boolean; // 是否尝试过投递
+} & CronRunOutcome & CronRunTelemetry;
+```
+
+**`delivered` 的语义（关键设计）：**
+
+```
+delivered = true：
+  Agent 在 turn 过程中主动用 message 工具发了消息
+  → cron service 跳过自动投递，避免重复发送
+
+delivered = false：
+  Agent 没有用 message 工具
+  → 根据 job.delivery 配置决定是否自动投递 outputText
+```
+
+这个设计让有主动投递能力的 Agent 和纯计算型 Agent 都能正确工作——前者自己发消息，后者由 cron 框架统一投递。
+
+**遥测记录：**
+
+```typescript
+CronRunTelemetry = {
+  model: string;     // 实际使用的模型
+  provider: string;  // 实际使用的 provider
+  usage: {
+    input_tokens, output_tokens, total_tokens,
+    cache_read_tokens, cache_write_tokens
+  }
+}
+```
+
+每次运行的 token 消耗都被记录，可通过 `cron runs` 命令查看历史。
+
+### 9.5.9 一个完整示例的执行轨迹
+
+```
+每天 9:00 触发 job "daily-summary":
+  payload:
+    message: "读取 MEMORY.md，总结最近一周的项目进展，以 Markdown 格式发到 #daily 频道"
+    model: "anthropic/claude-sonnet-4-6"
+    timeoutSeconds: 120
+
+执行：
+  1. resolveSession → 创建新 session "cron-daily-summary-xxxx"
+  2. 构建 system prompt（含 SOUL.md / USER.md / runtime 信息）
+  3. 发送 payload.message 给 Pi 引擎
+  4. Pi 引擎开始 tool loop：
+       → memory_get("MEMORY.md") → 读取长期记忆
+       → sessions_list(activeMinutes=10080) → 看看过去一周有哪些会话
+       → [思考：整理内容]
+       → message(channel="discord", target="#daily", message="## 本周进展\n...")
+  5. Agent 用 message 工具发了消息 → delivered = true
+  6. CronRunOutcome = { status: "ok", summary: "已发送周报" }
+  7. job.delivery 配置了 announce，但 delivered=true → 跳过重复投递
+  8. 更新 session store，记录遥测
+  9. session reaper 后续清理 "cron-daily-summary-xxxx"
+```
+
+---
+
+## 9.6 投递模式
 
 **文件：** `src/cron/delivery.ts`
 
@@ -120,7 +408,7 @@ type CronDelivery = {
 
 ---
 
-## 9.6 运行时遥测
+## 9.7 运行时遥测
 
 **文件：** `src/cron/types.ts`
 
@@ -147,7 +435,7 @@ type CronRunTelemetry = {
 
 ---
 
-## 9.7 持久化与恢复
+## 9.8 持久化与恢复
 
 **文件：** `src/cron/store.ts`, `src/cron/service/state.ts`
 
@@ -166,7 +454,7 @@ Gateway 启动
 
 ---
 
-## 9.8 Session Reaper
+## 9.9 Session Reaper
 
 **文件：** `src/cron/session-reaper.ts`
 
@@ -176,7 +464,7 @@ Gateway 启动
 
 ---
 
-## 9.9 初始投递（Initial Delivery）
+## 9.10 初始投递（Initial Delivery）
 
 **文件：** `src/cron/service/initial-delivery.ts`
 
@@ -190,7 +478,7 @@ Gateway 启动
 
 ---
 
-## 9.10 与心跳系统的关系
+## 9.11 与心跳系统的关系
 
 第 5 章提到的心跳系统（heartbeat）和 Cron 有相似的外表，但本质不同：
 
@@ -206,7 +494,7 @@ Gateway 启动
 
 ---
 
-## 9.11 本章要点
+## 9.12 本章要点
 
 Cron 引擎的三个核心设计原则：
 
@@ -219,10 +507,14 @@ Cron 引擎的三个核心设计原则：
 | 文件 | 优先级 | 说明 |
 |------|--------|------|
 | `src/cron/types.ts` | ★★★ | 全部核心类型（调度、payload、投递、遥测）|
+| `src/cron/service/state.ts` | ★★★ | CronServiceDeps 定义（含 runIsolatedAgentJob 签名）|
 | `src/cron/service.ts` | ★★★ | Cron 服务主入口 |
-| `src/cron/service/state.ts` | ★★ | 调度状态管理 |
-| `src/cron/service/jobs.ts` | ★★ | job CRUD 操作 |
+| `src/cron/service/timeout-policy.ts` | ★★ | 超时策略：DEFAULT vs AGENT_TURN_SAFETY |
+| `src/cron/service/jobs.ts` | ★★ | job CRUD + isJobDue + 锁 |
+| `src/commands/agent/types.ts` | ★★ | AgentCommandOpts（isolated run 的参数结构）|
+| `src/commands/agent/delivery.ts` | ★★ | deliverAgentCommandResult（结果投递）|
 | `src/cron/delivery.ts` | ★★ | 投递实现 |
+| `src/agents/model-selection.ts` | ★ | normalizeModelSelection（模型参数规范化）|
 | `src/cron/store.ts` | ★ | 磁盘持久化 |
 | `src/cron/session-reaper.ts` | ★ | session 清理 |
 | `src/cron/stagger.ts` | ★ | 防调度风暴算法 |
