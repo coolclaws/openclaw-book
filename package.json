@@ -1,0 +1,26 @@
+{
+  "name": "openclaw-book",
+  "version": "1.0.0",
+  "description": "> 深入剖析 OpenClaw —— 一个开源的个人 AI 助手网关系统",
+  "main": "index.js",
+  "scripts": {
+    "docs:dev": "vitepress dev",
+    "docs:build": "vitepress build",
+    "docs:preview": "vitepress preview"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/coolclaws/openclaw-book.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/coolclaws/openclaw-book/issues"
+  },
+  "homepage": "https://github.com/coolclaws/openclaw-book#readme",
+  "devDependencies": {
+    "vitepress": "^1.6.4"
+  },
+  "type": "module"
+}
