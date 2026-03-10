@@ -4,7 +4,64 @@
 
 Agent 运行用户提供的代码或处理不可信输入时，宿主机的安全边界完全依赖工具策略——但策略是软件层的，可以被绕过（比如通过 bash 工具访问宿主机敏感文件）。Sandbox 在操作系统层提供强隔离：Agent 的所有操作都在 Docker 容器内执行，容器外的文件系统和网络默认不可达。
 
-## 16.2 文件组织
+## 16.2 启用方式：默认关闭，需显式配置
+
+**沙箱默认不启用。** 需要在配置文件中显式设置 `sandbox.mode` 才会生效。
+
+### 三种模式
+
+```typescript
+type AgentSandboxConfig = {
+  mode?: "off" | "non-main" | "all";
+};
+```
+
+| 模式 | 说明 | 适用场景 |
+|------|------|---------|
+| `"off"` | 完全不启用（**默认值**）| 个人使用，信任所有输入 |
+| `"non-main"` | 只对非主会话启用沙箱 | **推荐安全设置**：保护宿主机但不影响日常对话 |
+| `"all"` | 所有会话（含 main）都在沙箱中运行 | 极高安全要求，一般不用 |
+
+### 配置方式
+
+可在全局默认或单个 agent 中设置：
+
+```yaml
+# 全局默认（agents.defaults）
+agents:
+  defaults:
+    sandbox:
+      mode: non-main   # 非主会话全部进沙箱
+
+# 或单个 agent
+agents:
+  list:
+    - id: research
+      sandbox:
+        mode: all      # 这个 agent 的所有会话都在沙箱里
+```
+
+### 哪些场景会触发沙箱
+
+当 `mode` 配置了 `"non-main"` 时，以下场景的 exec / bash 工具调用会在 Docker 容器里执行：
+
+- **群组消息**：Discord / Slack / Telegram 群组里的陌生人发来的消息（非主会话）
+- **子 Agent（Sub-agent）**：父 Agent 派生的子任务，inherit 模式下跟随父配置，require 模式下强制沙箱
+- **Cron isolated 任务**：`sessionTarget: "isolated"` 的 cron job 创建的 session
+- **ACP 会话**：外部编码 Agent 的 session（非主 session）
+
+**主会话（main session）不受 `"non-main"` 影响**——因为 main session 默认是你自己在用，完全信任。
+
+### 前提条件
+
+Sandbox 依赖 Docker，启用前需要：
+1. 宿主机安装并运行 Docker
+2. `openclaw` 进程有权限执行 `docker` 命令
+3. 首次使用时会自动拉取默认镜像（`ghcr.io/openclaw/sandbox:latest`）
+
+---
+
+## 16.3 文件组织
 
 ```
 src/agents/sandbox/
@@ -20,7 +77,7 @@ src/agents/sandbox/
 
 ---
 
-## 16.3 沙箱工具策略（固定规则）
+## 16.4 沙箱工具策略（固定规则）
 
 沙箱的工具策略是**硬编码**的，不受 `openclaw.json` 配置影响，也不受用户的 toolPolicy 设置覆盖：
 
@@ -42,7 +99,7 @@ discord_*, telegram_*, slack_*, whatsapp_*（全部渠道工具）
 
 ---
 
-## 16.4 沙箱生命周期
+## 16.5 沙箱生命周期
 
 ```
 session 创建，且 sandbox=require（或配置默认启用）
@@ -66,7 +123,7 @@ sandbox-prune（定期任务）—— 清理停止的容器和临时数据
 
 ---
 
-## 16.5 两种触发方式
+## 16.6 两种触发方式
 
 **文件：** `src/agents/subagent-spawn.ts`
 
@@ -86,7 +143,7 @@ const SUBAGENT_SPAWN_SANDBOX_MODES = ["inherit", "require"] as const;
 
 ---
 
-## 16.6 沙箱 vs 工具策略的关系
+## 16.7 沙箱 vs 工具策略的关系
 
 沙箱和工具策略（第 11 章）是两个不同层次的安全机制：
 
@@ -101,7 +158,7 @@ const SUBAGENT_SPAWN_SANDBOX_MODES = ["inherit", "require"] as const;
 
 ---
 
-## 16.7 本章要点
+## 16.8 本章要点
 
 - 沙箱在 OS 层提供隔离，工具策略是软件层——两者互补
 - 沙箱工具策略硬编码，不可被用户配置覆盖
