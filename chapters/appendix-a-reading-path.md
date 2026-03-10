@@ -1,85 +1,134 @@
 # 附录 A：推荐阅读路径
 
-## 路径一：全景式阅读（2-3 周）
+本书 26 章内容覆盖 OpenClaw 的全部核心模块。根据你的出发点和时间，这里提供五条不同深度的阅读路径，以及一张"关键章节速查表"。
 
-按照本书章节顺序，从头到尾阅读。适合希望全面理解 OpenClaw 的读者。
+---
 
-```
-第 1-2 章（1-2 天）→ 第 3-4 章（1-2 天）→ 第 5-6 章（2-3 天）
-→ 第 7-9 章（3-5 天）→ 第 10-12 章（2-3 天）→ 第 13-15 章（按需）
-```
+## 路径一：全景精读（3–4 周）
 
-## 路径二：消息流追踪（3-5 天）
+按章节顺序从头读完，适合想全面掌握 OpenClaw 架构的读者。每部分建议用时：
 
-如果你只想理解"一条消息从用户发出到收到 AI 回复的全过程"，按照这个路径：
+| 部分 | 章节 | 建议用时 | 核心收获 |
+|------|------|---------|---------|
+| 第一部分：宏观认知 | Ch 1–2 | 1–2 天 | 建立整体认知，了解仓库结构 |
+| 第二部分：启动与基础设施 | Ch 3–4 | 1–2 天 | 理解 CLI 入口和配置系统 |
+| 第三部分：核心流水线 | Ch 5–9 | 4–6 天 | **全书最重要的部分**，掌握消息从进到出的完整路径 |
+| 第四部分：Agent 运行时 | Ch 10–20 | 8–10 天 | 深入 Pi 引擎，理解 AI 行为的每一个决策点 |
+| 第五部分：扩展体系 | Ch 21–23 | 3–4 天 | 理解 OpenClaw 的可扩展设计 |
+| 第六部分：辅助系统 | Ch 24–26 | 2–3 天 | 安全、前端、边缘子系统 |
 
-```
-1. src/telegram/handlers.ts        — 消息如何进入系统
-2. src/auto-reply/envelope.ts      — 消息如何被封装
-3. src/auto-reply/dispatch.ts      — 消息如何被分发
-4. src/routing/resolve-route.ts    — 路由如何确定
-5. src/auto-reply/reply.ts         — AI 回复如何生成
-6. src/agents/pi-embedded.ts       — Agent 如何运行
-7. src/agents/system-prompt.ts     — System prompt 如何组装
-8. src/auto-reply/chunk.ts         — 回复如何分块发送
-9. src/telegram/outbound.ts        — 回复如何发到 Telegram
-```
+> **阅读建议**：Ch 5（Gateway）和 Ch 6（消息流水线）是理解系统运转的骨架，建议反复读。Ch 10（Pi 引擎）是理解 Agent 行为的入口，后续 Ch 11–20 都建立在它之上。
 
-## 路径三：Agent 深入（3-5 天）
+---
 
-如果你对 AI Agent 的运行机制最感兴趣：
+## 路径二：消息追踪——一条消息的完整旅程（3–5 天）
+
+适合想快速理解"用户发消息 → AI 回复"全链路的读者。
 
 ```
-1. src/agents/system-prompt.ts         — Prompt 工程
-2. src/agents/pi-embedded.ts           — Agent 入口
-3. src/agents/pi-embedded-subscribe.ts — 流式处理
-4. src/agents/pi-embedded-subscribe.handlers.tools.ts — 工具调用
-5. src/agents/model-selection.ts       — 模型选择
-6. src/agents/auth-profiles.ts         — 认证轮转
-7. src/agents/compaction.ts            — 上下文管理
-8. src/agents/tools/common.ts          — 工具注册
-9. src/agents/tools/message-tool.ts    — 消息工具实现
+Ch 6  →  Ch 7  →  Ch 8  →  Ch 5（§5.x Hook 系统）
+消息入境    出境投递   媒体理解    Gateway 分发
+
+         ↓ 消息到达 Pi 引擎
+Ch 10 → Ch 11 → Ch 12 → Ch 13
+Pi引擎  System Prompt  模型选择  上下文裁剪
+
+         ↓ 工具调用
+Ch 15 → Ch 16
+工具策略   Sandbox执行
 ```
 
-## 路径四：插件开发（2-3 天）
+**聚焦节点**：
 
-如果你想为 OpenClaw 开发渠道插件：
+- §6.3 MsgContext 字段——理解消息的完整元数据结构
+- §6.6 七层路由匹配——消息如何找到对应 Agent
+- §7.2 分块发送——长回复如何分段推送给用户
+- §11.2 System Prompt 组装顺序——理解 Agent 的"信念系统"
+- §13.5 Compaction——上下文满了如何处理
 
-```
-1. src/plugin-sdk/core.ts              — 必读，所有接口定义
-2. src/plugin-sdk/index.ts             — SDK 导出
-3. extensions/matrix/src/index.ts      — 一个完整的插件示例
-4. src/plugins/discovery.ts            — 理解插件如何被发现
-5. src/plugins/enable.ts               — 理解插件如何被加载
-6. src/telegram/handlers.ts            — 参考最完整的渠道实现
-```
+---
 
-## 路径五：基础设施（1-2 天）
+## 路径三：Agent 运行时深挖（1 周）
 
-如果你对项目工程化感兴趣：
+适合已了解消息基本流程、想深入理解 AI 行为的读者。
 
 ```
-1. package.json + pnpm-workspace.yaml  — Monorepo 结构
-2. tsdown.config.ts                    — 构建配置
-3. vitest.config.ts                    — 测试配置
-4. src/infra/                          — 基础设施工具
-5. src/logging/                        — 日志系统
-6. CLAUDE.md                           — 开发规范
+Ch 10  →  Ch 11  →  Ch 12
+Pi引擎三层架构  System Prompt  模型选择与Failover
+
+Ch 13  →  Ch 14  →  Ch 15
+上下文管理    记忆系统     工具策略
+
+Ch 16  →  Ch 17  →  Ch 18
+Sandbox隔离   Browser控制  Skills平台
+
+Ch 19  →  Ch 20
+Sub-agent系统  ACP外部Agent
 ```
 
-## 关键文件 Top 10
+**重点章节**：
 
-如果时间有限，这 10 个文件能让你快速建立对 OpenClaw 的理解：
+- **Ch 10 §10.3**：三层循环实战案例——最直观地理解 Agent 如何工作
+- **Ch 11 §11.2**：System Prompt 组装顺序——了解 Agent "看到"什么
+- **Ch 13 §13.5**：Compaction 算法——11 个子节，最深的技术细节
+- **Ch 15 §15.4**：策略管道——工具如何被过滤和授权
+- **Ch 18 §18.x**：Skills——理解 Agent 能力的组合与扩展
+- **Ch 19 §19.2**：Sub-agent 触发场景——并行任务如何派生
 
-| # | 文件 | 理由 |
-|---|------|------|
-| 1 | `src/agents/system-prompt.ts` | 理解 Agent 的"灵魂" |
-| 2 | `src/auto-reply/dispatch.ts` | 理解消息入口 |
-| 3 | `src/auto-reply/reply.ts` | 理解 AI 回复生成 |
-| 4 | `src/agents/pi-embedded.ts` | 理解 Agent 运行时 |
-| 5 | `src/plugin-sdk/core.ts` | 理解渠道抽象 |
-| 6 | `src/gateway/boot.ts` | 理解系统启动 |
-| 7 | `src/routing/resolve-route.ts` | 理解消息路由 |
-| 8 | `src/config/io.ts` | 理解配置系统 |
-| 9 | `src/agents/model-selection.ts` | 理解多模型管理 |
-| 10 | `src/agents/tools/common.ts` | 理解工具注册 |
+---
+
+## 路径四：扩展与插件开发（2–3 天）
+
+适合想为 OpenClaw 开发渠道插件、Context Engine、Extension 的读者。
+
+```
+Ch 21 → Ch 23 → Ch 22（选读）
+Plugin SDK  Extension机制  渠道实现参考
+```
+
+**聚焦节点**：
+
+- §21.2 OpenClawPlugin 接口——所有插件的基础契约
+- §21.3 Plugin Hooks（24 个钩子）——了解可以在哪些点注入逻辑
+- §21.4 渠道抽象三层接口——开发新渠道的起点
+- §23.x Extension 机制——与 Plugin 的区别，Extension 的生命周期
+- **§13.8 Context Engine 插件槽**（Ch 13）——替换上下文引擎的方式
+- **§22.5 Slash Commands**（Ch 22）——为渠道注册自定义命令
+
+---
+
+## 路径五：生产部署与安全（2–3 天）
+
+适合负责运维或关注安全边界的读者。
+
+```
+Ch 4（配置系统）→ Ch 24（安全模型）→ Ch 16（Sandbox）→ Ch 9（Cron）→ Ch 26（辅助系统）
+```
+
+**聚焦节点**：
+
+- §4.x 配置文件结构——`openclaw.json` 每个字段的含义
+- §16.2 Sandbox 启用方式——`"off"` / `"non-main"` / `"all"` 三种模式
+- §24.2 DM 配对——身份验证第一道防线
+- §24.9 Exec 审批——高风险命令的人工审批流程
+- §24.10 Auth Profiles——API key 轮转与凭据管理
+- §26.x 日志、诊断、设备节点
+
+---
+
+## 关键章节 Top 10
+
+如果时间极度有限，这 10 章能建立对 OpenClaw 最重要的认知：
+
+| 优先级 | 章节 | 理由 |
+|--------|------|------|
+| ⭐⭐⭐ | **Ch 6** 消息流水线 | 系统最核心的流程，一切从这里开始 |
+| ⭐⭐⭐ | **Ch 10** Pi 引擎总览 | Agent 运行时的骨架，理解三层循环 |
+| ⭐⭐⭐ | **Ch 11** System Prompt | 理解 Agent "看到"什么，"相信"什么 |
+| ⭐⭐⭐ | **Ch 5** Gateway | 系统的控制平面，26 个 Hook 点 |
+| ⭐⭐ | **Ch 13** 上下文管理 | Compaction 是 Agent 长对话的生命线 |
+| ⭐⭐ | **Ch 15** 工具策略 | 工具授权、安全边界、循环检测 |
+| ⭐⭐ | **Ch 21** Plugin SDK | 所有扩展的基础接口 |
+| ⭐⭐ | **Ch 19** Sub-agent | 并行任务和复杂工作流的实现方式 |
+| ⭐ | **Ch 24** 安全模型 | 生产部署必读 |
+| ⭐ | **Ch 18** Skills | 理解 Agent 能力的打包与复用机制 |

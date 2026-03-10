@@ -101,6 +101,7 @@ export default defineConfig({
         items: [
           { text: '附录 A：推荐阅读路径', link: '/chapters/appendix-a-reading-path' },
           { text: '附录 B：关键类型速查', link: '/chapters/appendix-b-type-reference' },
+          { text: '附录 C：名词解释（Glossary）', link: '/chapters/appendix-c-glossary' },
         ],
       },
     ],
