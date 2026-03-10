@@ -30,7 +30,7 @@
 - [第 17 章　Browser 控制系统](/chapters/17-browser)
 - [第 18 章　Skills](/chapters/18-skills)
 - [第 19 章　Sub-agent 系统](/chapters/19-subagent)
-- [第 20 章　ACP：外部编码 Agent 协议](/chapters/20-acp)
+- [第 20 章　ACP：外部 Agent 通信协议](/chapters/20-acp)
 
 ## 第五部分：扩展体系
 

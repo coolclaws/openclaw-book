@@ -74,7 +74,7 @@ export default defineConfig({
           { text: '第 17 章　Browser 控制系统', link: '/chapters/17-browser' },
           { text: '第 18 章　Skills', link: '/chapters/18-skills' },
           { text: '第 19 章　Sub-agent 系统', link: '/chapters/19-subagent' },
-          { text: '第 20 章　ACP：外部编码 Agent 协议', link: '/chapters/20-acp' },
+          { text: '第 20 章　ACP：外部 Agent 通信协议', link: '/chapters/20-acp' },
         ],
       },
       {
