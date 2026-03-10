@@ -249,7 +249,77 @@ createToolFsPolicy({
 
 ---
 
-## 15.8 工具 Schema 兼容性
+## 15.8 工具循环检测（Tool Loop Detection）
+
+**文件：** `src/agents/tool-loop-detection.ts`
+
+Agent 进入工具调用循环是真实存在的失控场景：反复执行相同的 `exec` 命令却没有进展，或在两个工具之间乒乓调用，永远无法产生最终回复。工具循环检测系统在每次工具调用前检查历史，发现异常时介入。
+
+### 四种检测器
+
+```typescript
+type LoopDetectorKind =
+  | "generic_repeat"          // 相同 tool+params 重复调用 N 次
+  | "known_poll_no_progress"  // 轮询类工具（如 process poll）调用无进展
+  | "global_circuit_breaker"  // 全局熔断：任意工具调用总次数过高
+  | "ping_pong";              // A 调 B、B 调 A 的双工具乒乓模式
+```
+
+### 阈值常量
+
+```typescript
+const TOOL_CALL_HISTORY_SIZE = 30;   // 滑动窗口大小
+const WARNING_THRESHOLD      = 10;   // 触发 warning 级别
+const CRITICAL_THRESHOLD     = 20;   // 触发 critical 级别（阻断）
+const GLOBAL_CIRCUIT_BREAKER_THRESHOLD = 30; // 全局熔断
+```
+
+检测结果分两级：
+- **`warning`**：记录日志，向 Agent 注入提示，不阻断执行
+- **`critical`**：终止当前工具调用，强制 Agent 退出中循环
+
+### 工作流程
+
+```
+工具调用请求
+    ↓
+recordToolCall()  ← 写入滑动窗口（最近 30 次）
+    ↓
+detectToolCallLoop()
+    ↓
+  stuck=false → 正常执行
+  stuck=true, warning → 注入提示，继续执行
+  stuck=true, critical → 返回错误，中止本次工具调用
+    ↓
+recordToolCallOutcome()  ← 记录结果（用于 no_progress 检测）
+```
+
+`hashToolCall` 用工具名 + 参数的确定性 JSON digest 生成指纹，相同参数重复调用才会触发 `generic_repeat`；参数略有不同则不计入同一模式。
+
+### 配置
+
+```json
+{
+  "agents": {
+    "defaults": {
+      "toolPolicy": {
+        "loopDetection": {
+          "enabled": true,
+          "warningThreshold": 8,
+          "criticalThreshold": 15,
+          "globalCircuitBreakerThreshold": 25
+        }
+      }
+    }
+  }
+}
+```
+
+**默认关闭**（`enabled: false`），需显式开启。
+
+---
+
+## 15.9 工具 Schema 兼容性
 
 不同 LLM 对工具 schema 要求不同：
 
@@ -262,7 +332,7 @@ createToolFsPolicy({
 
 ---
 
-## 15.9 本章要点
+## 15.10 本章要点
 
 - 工具来自六个来源，经过多层策略管道 + 模型兼容性双重过滤
 - 策略管道是覆盖式的，高优先级策略完全替代低优先级结论

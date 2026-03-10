@@ -45,7 +45,7 @@
 - **第 15–17 章**：工具策略、Sandbox、Browser 控制
 
 ### 阶段四：多 Agent 协作（约 2 小时）
-- **第 18–20 章**：Skills、Sub-agent、ACP（外部编码 Agent）
+- **第 18–20 章**：Skills、Sub-agent、ACP（外部 Agent 通信协议）
 
 ### 阶段五：扩展与安全（按需阅读）
 - **第 21–23 章**：Plugin SDK、渠道实现、Extension

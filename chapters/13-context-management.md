@@ -560,7 +560,83 @@ LLM 调用（streaming）
 
 ---
 
-## 13.8 本章要点
+## 13.8 Context Engine：可插拔的上下文引擎
+
+**文件：** `src/context-engine/`
+
+四层防线（§13.3–§13.6）是 OpenClaw 的默认上下文管理实现。这套实现被封装在一个叫做 **Context Engine** 的插件槽（Plugin Slot）里，意味着第三方插件可以用完全不同的实现替换它——比如接入向量数据库做语义检索，或者实现滑动窗口、分层记忆等高级策略。
+
+### 13.8.1 ContextEngine 接口
+
+```typescript
+interface ContextEngine {
+  readonly info: ContextEngineInfo;  // id, name, version, ownsCompaction
+
+  // 生命周期
+  bootstrap?(params: { sessionId, sessionFile }): Promise<BootstrapResult>;
+  dispose?(): Promise<void>;
+
+  // 消息摄入
+  ingest(params: { sessionId, message, isHeartbeat? }): Promise<IngestResult>;
+  ingestBatch?(params: { sessionId, messages, isHeartbeat? }): Promise<IngestBatchResult>;
+
+  // 核心操作
+  assemble(params: { sessionId, messages, tokenBudget? }): Promise<AssembleResult>;
+  compact(params: { sessionId, sessionFile, tokenBudget?, force?, ... }): Promise<CompactResult>;
+
+  // 可选：每次 turn 结束后的钩子
+  afterTurn?(params: { ... }): Promise<void>;
+
+  // 可选：子 Agent 协调
+  prepareSubagentSpawn?(params: { parentSessionKey, childSessionKey, ttlMs? }): Promise<...>;
+  onSubagentEnded?(params: { childSessionKey, reason }): Promise<void>;
+}
+```
+
+三个关键方法：
+- **`ingest`**：每条消息写入引擎的存储，默认实现是空操作（SessionManager 负责持久化）
+- **`assemble`**：在给定 token 预算内组装最终送给模型的消息列表，可以做语义检索、优先级排序等
+- **`compact`**：执行压缩，默认委托给 `compactEmbeddedPiSessionDirect`（见 §13.5）
+
+`ownsCompaction: true` 时，引擎自己管理压缩生命周期，框架不再主动触发 Compaction。
+
+### 13.8.2 默认实现：LegacyContextEngine
+
+```typescript
+class LegacyContextEngine implements ContextEngine {
+  // ingest: 空操作
+  // assemble: 直通（现有的 sanitize/validate/limit pipeline 处理）
+  // compact: 委托给 compactEmbeddedPiSessionDirect
+}
+```
+
+`LegacyContextEngine` 是向后兼容的包装层，把现有的四层防线机制套进 ContextEngine 接口，不改变任何行为。
+
+### 13.8.3 注册与选择
+
+```typescript
+// 插件中注册自定义引擎
+registerContextEngine("my-vector-engine", () => new MyVectorContextEngine());
+
+// config.json 中选择引擎
+{
+  "plugins": {
+    "slots": {
+      "contextEngine": "my-vector-engine"
+    }
+  }
+}
+```
+
+解析顺序：`config.plugins.slots.contextEngine` → 默认值 `"legacy"`。
+
+内置两个槽：
+- `"legacy"`：默认，LegacyContextEngine
+- `memory` 槽（独立）：控制哪个插件管理记忆系统（见第 14 章）
+
+---
+
+## 13.9 本章要点
 
 四层防线的设计哲学：**不同烈度的 context 压力由不同层次应对**。
 
