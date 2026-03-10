@@ -8,7 +8,9 @@ export default defineConfig({
   base: '/openclaw-book/',
 
   head: [
-    ['meta', { name: 'theme-color', content: '#646cff' }],
+    ['link', { rel: 'icon', type: 'image/svg+xml', href: '/openclaw-book/favicon.svg' }],
+    ['link', { rel: 'icon', type: 'image/x-icon', href: '/openclaw-book/favicon.ico' }],
+    ['meta', { name: 'theme-color', content: '#ff4d4d' }],
     ['meta', { property: 'og:type', content: 'website' }],
     ['meta', { property: 'og:title', content: 'OpenClaw 源码解析' }],
     ['meta', { property: 'og:description', content: '深入剖析 OpenClaw —— 一个开源的个人 AI 助手网关系统' }],
