@@ -49,3 +49,4 @@
 - [附录 A：推荐阅读路径](/chapters/appendix-a-reading-path)
 - [附录 B：关键类型与接口速查](/chapters/appendix-b-type-reference)
 - [附录 C：名词解释（Glossary）](/chapters/appendix-c-glossary)
+- [附录 D：版本更新追踪](/chapters/appendix-d-version-changelog)
