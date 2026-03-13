@@ -636,6 +636,19 @@ registerContextEngine("my-vector-engine", () => new MyVectorContextEngine());
 
 ---
 
+## 13.8.4 sessionKey 全阶段透传
+
+> **📦 v2026.3.12 新增**
+
+v2026.3.12 将 `sessionKey` 透传到 Context Engine 的**所有生命周期阶段**：bootstrap、assembly、post-turn ingestion 和 compaction。此前部分阶段无法获取 sessionKey，导致自定义 Context Engine 插件难以实现基于 session 的差异化策略。
+
+修改后，插件在每个阶段都能读取到完整的路由元数据（包括 sessionKey、agentId、channel 来源等），可以据此实现：
+- 不同 session 使用不同的压缩策略（如 main session 保留更多历史，sub-agent session 激进压缩）
+- 基于 session 来源渠道的上下文装配策略（如 Discord thread 与 Telegram DM 使用不同的 token 预算）
+- 跨 session 的上下文共享（通过 sessionKey 在自定义存储中关联）
+
+---
+
 ## 13.9 本章要点
 
 四层防线的设计哲学：**不同烈度的 context 压力由不同层次应对**。

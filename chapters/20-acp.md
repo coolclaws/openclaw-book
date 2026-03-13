@@ -369,6 +369,22 @@ type SpawnAcpResult = {
 };
 ```
 
+> **📦 v2026.3.11 新增**
+
+`sessions_spawn` 新增可选参数 `resumeSessionId`（仅在 `runtime: "acp"` 模式下可用）。设置此参数后，spawn 不再创建新的 ACP 会话，而是**恢复已有的 Codex/ACPX 会话**，续接上一次的上下文和工作状态：
+
+```typescript
+sessions_spawn({
+  task: "继续上次的重构工作",
+  runtime: "acp",
+  agentId: "claude-code",
+  resumeSessionId: "acpx-session-abc123",  // 恢复已有会话
+  mode: "session"
+});
+```
+
+这对于长周期的编码任务特别有用——用户可以在不同时间段续接同一个 coding session，而不必每次都从头开始。
+
 ### Parent Stream Relay
 
 **文件：** `src/agents/acp-spawn-parent-stream.ts`
@@ -491,6 +507,16 @@ AcpRuntime.runTurn({ handle, text: "帮我给 cryptosurf 加...", mode: "prompt"
   ↓
 用户看到 Agent 的实时工作进度 + 最终结果
 ```
+
+---
+
+## 20.12.1 ACP Client 末尾消息修复
+
+> **📦 v2026.3.12 新增**
+
+v2026.3.12 修复了 ACP 客户端丢失最后一条回复的问题。此前在 `end_turn` 事件到达时，terminal assistant text 可能已经被清除，导致 ACP 客户端收不到 Agent 的最终回复。
+
+修复方案：Gateway 在发出 `end_turn` 事件之前，保留 terminal assistant text 的快照。ACP 客户端通过该快照获取完整的最后一条回复文本，确保不再丢失结尾内容。
 
 ---
 

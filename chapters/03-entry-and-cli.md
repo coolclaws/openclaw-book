@@ -115,6 +115,23 @@ openclaw agent --message "Ship checklist" --thinking high
 
 这对开发和调试非常有用。
 
+## 3.6.1 CLI 子进程环境变量注入
+
+> **📦 v2026.3.11 新增**
+
+CLI 子进程现在会自动注入 `OPENCLAW_CLI` 环境变量。子进程可以通过检测该变量判断自己是否由 OpenClaw CLI 启动：
+
+```typescript
+if (process.env.OPENCLAW_CLI) {
+  // 当前进程是由 openclaw CLI 启动的子进程
+  // 可以调整行为，例如跳过冗余初始化、使用更简洁的输出格式
+}
+```
+
+这对于被 `exec` 工具调用的脚本特别有用——脚本可以根据是否在 OpenClaw 环境中运行来调整自己的行为（例如使用结构化输出而非交互式 UI）。
+
+---
+
 ## 3.7 本章要点
 
 - `entry.ts` 是程序入口，负责 Node respawn 和快速路径

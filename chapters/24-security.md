@@ -417,6 +417,67 @@ type AuthProfileStore = {
 
 ---
 
+## 24.10.1 v2026.3.12 安全加固
+
+> **📦 v2026.3.12 新增**
+
+v2026.3.12 包含 20+ 项安全修复，是 OpenClaw 历史上安全加固力度最大的单次发版。以下按类别整理：
+
+### 1. Exec 审批防绕过（5 个 CVE）
+
+| 漏洞 | 攻击手法 | 修复 |
+|------|---------|------|
+| Unicode 隐形字符 | 在命令中插入零宽字符绕过 allowlist 匹配 | 命令规范化时先剥离所有 Unicode 控制字符 |
+| Ruby `-r` 标志 | `ruby -r malicious_lib` 通过 `-r` 加载恶意代码 | 标志检测扩展覆盖 Ruby 特有的 `-r`/`-e` 模式 |
+| Inline loader | 利用 `node --require` / `python -c` 内联执行 | 增加 inline code execution 模式检测 |
+| Shell payload 绑定 | 通过环境变量 `ENV=...` 前缀绑定 payload | 检测并阻断 `KEY=VALUE command` 模式中的可疑 payload |
+| pnpm/npx 脚本 | `pnpm exec` / `npx` 执行未审核的 package 脚本 | 将 `pnpm exec`、`npx` 纳入需审批命令列表 |
+
+### 2. 设备配对安全
+
+- **配对码改为短期 bootstrap token**：配对码不再是静态 6 位数字，改为带 TTL 的一次性 bootstrap token，过期自动失效
+- **设备 token scope 上限**：配对设备获取的 token 有明确的权限上限，不再继承 owner 的完整权限
+
+### 3. WebSocket 安全
+
+- **预认证帧大小限制**：在 WS 连接完成认证之前，限制单帧最大字节数，防止未认证客户端发送巨帧消耗内存
+- **共享 token scope 清除**：共享 token（用于多设备连接）的权限范围在 token 失效时完整清除，不留残余授权
+
+### 4. Plugin 安全
+
+- **工作区插件禁止自动加载（GHSA-99qw-6mr3-36qr）**：此前 workspace 目录下的插件会被自动加载，攻击者可以通过在共享 workspace 中放置恶意插件实现代码执行。修复后工作区插件必须在配置中显式声明才会加载
+
+### 5. 沙箱写入修复
+
+- **空文件 bug**：沙箱中写入空文件时不再静默失败，正确创建零字节文件
+- **Stage 写入锁定父目录**：写入 staging 区域时锁定父目录，防止 TOCTOU 竞态导致写入到非预期位置
+
+### 6. 命令权限
+
+- **`/config`、`/debug` 要求 owner 身份**：这两个命令可暴露敏感配置信息，现在要求消息发送者是 owner
+- **`session_status` 沙箱可见性**：沙箱环境中的 session 状态查询不再泄露宿主机路径和进程信息
+
+### 7. Browser 控制
+
+- **阻止 `browser.request` 持久化 admin 操作**：攻击者可能通过 prompt injection 让 Agent 使用 browser 工具访问管理界面。修复后，browser 工具的请求会被检查目标 URL，阻止对 Gateway admin 端点的持久化操作（如配置修改、权限变更）
+
+### 8. Webhook 安全
+
+| 渠道 | 修复内容 |
+|------|---------|
+| 飞书（Feishu）| 实施双验证（签名 + 事件 token），防止伪造 webhook |
+| LINE | 修复空事件签名验证绕过——空 body 不再被视为合法事件 |
+| Zalo | 新增暴力破解限速，防止攻击者枚举 webhook secret |
+| Slack/Teams | 切换到稳定 ID 路由——使用 team_id + channel_id 组合而非可变的 workspace name |
+
+### 9. 其他安全修复
+
+- **SecretRef exec 遍历拒绝**：`exec` 工具尝试通过 SecretRef 路径遍历（`../../secrets/key`）时直接拒绝
+- **Secret 文件路径竞争加固**：secret 文件的读写操作加锁，防止并发竞争导致读到不完整的 secret
+- **归档解压 symlink 逃逸修复**：解压归档文件时检测并拒绝包含指向外部路径的符号链接，防止 zip slip 攻击
+
+---
+
 ## 24.11 本章要点（更新）
 
 | 层次 | 机制 | 说明 |

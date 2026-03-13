@@ -191,6 +191,65 @@ handleCommands()    → 找到对应 handler
 6. **Reconnection**：长连接断开后的自动重连（带退避）
 7. **Rate Limiting**：遵守平台 API 限制（如 Telegram 30 msg/sec）
 
+## 22.6.1 Discord 自动归档与 Mattermost 线程
+
+> **📦 v2026.3.11 新增**
+
+**Discord `autoArchiveDuration` 配置：**
+
+Discord 渠道新增 `autoArchiveDuration` 配置项，控制 thread 的自动归档时长：
+
+```json
+{
+  "channels": {
+    "discord": {
+      "autoArchiveDuration": "1d"
+    }
+  }
+}
+```
+
+支持的值：`"1h"`、`"1d"`、`"3d"`、`"7d"`。归档后的 thread 不再接收新消息路由，但历史记录保留。这对于使用 thread-bound ACP session 的场景特别有用——完成的编码任务 thread 会自动归档，保持频道整洁。
+
+**Mattermost 线程会话模式：**
+
+新增 `channels.mattermost.replyToMode` 配置，支持在顶层帖子（root post）上开启线程会话。设置后，Agent 的回复会自动作为线程回复而非独立消息发送，与 Mattermost 的线程式协作模式对齐。
+
+---
+
+## 22.6.2 Slack Block Kit 支持
+
+> **📦 v2026.3.12 新增**
+
+Slack 渠道现在通过 `channelData.slack.blocks` 支持 [Block Kit](https://api.slack.com/block-kit) 消息格式。Agent 在使用 `message` 工具向 Slack 发送消息时，可以传递 Block Kit JSON 结构，走标准 outbound delivery 路径：
+
+```json
+{
+  "channel": "slack",
+  "to": "#general",
+  "channelData": {
+    "slack": {
+      "blocks": [
+        {
+          "type": "section",
+          "text": { "type": "mrkdwn", "text": "*日报摘要*\n今日完成 3 项任务" }
+        },
+        {
+          "type": "actions",
+          "elements": [
+            { "type": "button", "text": { "type": "plain_text", "text": "查看详情" }, "url": "..." }
+          ]
+        }
+      ]
+    }
+  }
+}
+```
+
+这让 Agent 能够发送包含按钮、分栏、图表等丰富布局的 Slack 消息，而非仅限于纯文本。
+
+---
+
 ## 22.7 本章要点
 
 - Telegram 是最完整的参考实现，涵盖所有渠道模式

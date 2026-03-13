@@ -130,6 +130,37 @@ import { ... } from 'openclaw/plugin-sdk/slack'      // Slack 特定工具
 
 每个渠道特定的子路径提供该渠道独有的工具（如 `discord-send.ts` 提供 Discord 消息发送的辅助函数）。
 
+## 21.6.1 Provider Plugin 架构
+
+> **📦 v2026.3.12 新增**
+
+v2026.3.12 引入了 **Provider Plugin** 概念，将本地推理 provider（Ollama、vLLM、SGLang）从核心代码中剥离，改为独立的 provider plugin。
+
+此前这三个 provider 是 core 内置的，添加或修改需要改动核心代码。现在它们通过 Plugin SDK 的 provider 扩展点注册，与渠道插件类似地遵循接口契约：
+
+```typescript
+// Provider Plugin 需要实现的接口
+interface ProviderPluginAdapter {
+  // 引导用户完成配置
+  onboard(context: OnboardContext): Promise<OnboardResult>;
+
+  // 动态发现可用模型
+  discoverModels(): Promise<ModelCatalogEntry[]>;
+
+  // 配置模型选择器
+  setupModelPicker(picker: ModelPickerContext): void;
+
+  // 用户选择模型后的后置操作
+  postModelSelection(selection: ModelSelection): Promise<void>;
+}
+```
+
+**对现有用户的影响：**
+- 如果你使用 Ollama/vLLM/SGLang，升级后它们自动作为 provider plugin 加载，行为不变
+- 自定义 provider 开发者现在可以参考这三个 plugin 的实现，通过 Plugin SDK 注册自己的 provider，无需 fork 核心代码
+
+---
+
 ## 21.7 本章要点
 
 - Plugin SDK 用 15+ 种 Adapter 接口实现接口隔离，渠道只实现需要的部分

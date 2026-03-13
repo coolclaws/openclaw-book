@@ -74,6 +74,10 @@ export declare function listMemoryFiles(
 
 内容由 Agent 自主维护——在对话中学到的知识、用户偏好、项目背景，Agent 写入这些文件，系统自动索引。
 
+> **📦 v2026.3.11 新增**
+
+`listMemoryFiles` 的 `extraPaths` 参数现在支持**图片和音频文件索引**。配置 `memorySearch.extraPaths` 可以将非 Markdown 文件纳入索引范围，系统使用 Gemini `gemini-embedding-2-preview` 模型对多模态内容生成 embedding。这意味着 Agent 可以通过语义搜索找到"上次拍的那张架构图"或"上周录的会议音频"。
+
 ### sessions — 历史会话记录
 
 过去的对话记录（session JSONL 文件）。系统将它们渲染为 Markdown 文本后进行索引，让 Agent 能搜索到"上周讨论过 XX 话题"这类跨会话记忆。
@@ -182,6 +186,24 @@ type EmbeddingProvider = "openai" | "gemini" | "voyage" | "mistral" | "ollama";
 | Voyage | Anthropic 系生态，高质量代码检索 |
 | Mistral | 欧洲合规，自托管友好 |
 | Ollama | 完全本地，无 API Key，适合隐私场景 |
+
+> **📦 v2026.3.11 新增**
+
+Gemini 新增 `gemini-embedding-2-preview` embedding 模型支持。可通过配置指定 `outputDimensions` 控制向量维度：
+
+```json
+{
+  "memorySearch": {
+    "embedding": {
+      "provider": "gemini",
+      "model": "gemini-embedding-2-preview",
+      "outputDimensions": 768
+    }
+  }
+}
+```
+
+修改 `outputDimensions` 后，系统会自动触发全量重新索引（因为不同维度的向量不能混用）。
 
 **批量 embedding（Batch）：**
 
@@ -489,6 +511,38 @@ type MemoryProviderStatus = {
 │  searchKeyword(query text)     → mergeHybridResults → sorted[]  │
 └─────────────────────────────────────────────────────────────────┘
 ```
+
+---
+
+## 14.10.1 Compaction 后即时重新索引
+
+> **📦 v2026.3.12 新增**
+
+v2026.3.12 新增了 compaction 完成后即时触发记忆索引同步的能力，确保压缩后的摘要立刻被索引，Agent 在下一次 `memory_search` 时就能搜到最新的压缩内容。
+
+相关配置项：
+
+```json
+{
+  "agents": {
+    "defaults": {
+      "compaction": {
+        "postIndexSync": true
+      },
+      "memorySearch": {
+        "sync": {
+          "sessions": {
+            "postCompactionForce": true
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+- `postIndexSync: true`：compaction 完成后立即触发 memory 索引同步
+- `postCompactionForce: true`：强制对 session 源重新索引（即使 delta 追踪认为没有变化）
 
 ---
 

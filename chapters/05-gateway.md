@@ -467,6 +467,27 @@ Agent 调用 nodes(action="camera_snap")
 
 ---
 
+## 5.11.1 节点挂起队列原语
+
+> **📦 v2026.3.11 新增**
+
+v2026.3.11 新增了两个节点级队列原语 `node.pending.enqueue` 和 `node.pending.drain`，为**离线节点工作投递**能力奠基。
+
+当设备节点暂时离线（如 iOS 设备进入后台、网络中断）时，Gateway 可以将待执行的操作入队到 pending 队列：
+
+```typescript
+// 设备离线时，操作入队等待
+node.pending.enqueue({ nodeId, payload: { action: "camera_snap", ... } })
+
+// 设备重新上线后，一次性取出所有待处理操作
+node.pending.drain({ nodeId })
+// → [{ action: "camera_snap", ... }, ...]
+```
+
+这使得 Agent 不再需要关心设备是否在线——调用 `nodes` 工具时，如果设备离线，操作自动入队，设备恢复后补执行。
+
+---
+
 ## 5.12 本章要点
 
 Gateway 是一个**微内核 + 子系统组装**架构。核心设计决策：

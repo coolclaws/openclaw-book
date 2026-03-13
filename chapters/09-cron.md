@@ -381,6 +381,35 @@ CronRunTelemetry = {
 
 ---
 
+## 9.5.10 隔离投递收紧（Breaking Change）
+
+> **📦 v2026.3.11 新增**
+
+自 v2026.3.11 起，cron job 的隔离投递策略发生了**破坏性变更**：`isolated` 模式下的 cron job **不再允许**通过临时 agent send 或 fallback main-session 汇总投递结果。此前书中描述的 `notify` fallback 路径已失效。
+
+**影响范围：**
+- 如果你的 cron job 依赖 fallback 到 main session 来汇总投递，需要改为显式配置 `delivery.mode: "announce"` 或在 Agent prompt 中使用 `message` 工具主动发送。
+- 旧版存储格式需要迁移，运行 `openclaw doctor --fix` 会自动完成格式升级。
+
+**迁移命令：**
+
+```bash
+openclaw doctor --fix
+# 自动检测并迁移旧版 cron 存储格式
+```
+
+---
+
+## 9.5.11 隔离直投不再进入重发队列
+
+> **📦 v2026.3.12 新增**
+
+v2026.3.12 修复了隔离直投（isolated direct send）的一个重要问题：此前隔离直投会被写入 write-ahead 重发队列，导致 Gateway 重启后重复发送已投递的结果。
+
+修复后，隔离直投完成即标记为已投递，不再进入 write-ahead 重发队列，从根本上消除了重启后重复发送的风险。
+
+---
+
 ## 9.6 投递模式
 
 **文件：** `src/cron/delivery.ts`
