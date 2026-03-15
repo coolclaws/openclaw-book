@@ -17,7 +17,7 @@ export default defineConfig({
   ],
 
   themeConfig: {
-    logo: { src: '/logo.svg', alt: 'OpenClaw' },
+    logo: { src: '/logo.png', alt: 'OpenClaw' },
 
     nav: [
       { text: '开始阅读', link: '/chapters/01-project-overview' },
